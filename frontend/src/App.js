@@ -6,6 +6,7 @@ import Register from "./pages/register";
 import PatientDashboard from "./pages/PatientDashboard";
 import PharmacyDashboard from "./pages/PharmacyDashboard";
 import Orders from "./pages/Orders";
+import AdminDashboard from "./pages/Admin";
 
 function App() {
   const [orders, setOrders] = useState([]);
@@ -44,6 +45,11 @@ function App() {
         <Route
           path="/orders"
           element={<Orders orders={orders} />}
+        />
+
+        <Route
+          path="/admin"
+          element={<AdminDashboard />}
         />
       </Routes>
     </Router>

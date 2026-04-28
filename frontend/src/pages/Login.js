@@ -8,44 +8,57 @@ function Login() {
   const navigate = useNavigate();
 
   const handleLogin = async () => {
-    const trimmedEmail = email.trim();
-    const trimmedPassword = password.trim();
+  const trimmedEmail = email.trim().toLowerCase();
+  const trimmedPassword = password.trim();
 
-    if (!trimmedEmail || !trimmedPassword) {
-      alert("Please enter email and password");
+  if (!trimmedEmail || !trimmedPassword) {
+    alert("Please enter email and password");
+    return;
+  }
+
+  try {
+    const payload = { email: trimmedEmail, password: trimmedPassword };
+
+    const res = await fetch("http://localhost:5000/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => null);
+      alert(errorData?.message || "Login failed. Please check your credentials.");
       return;
     }
 
-    try {
-      const payload = { email: trimmedEmail, password: trimmedPassword };
-      const res = await fetch("http://localhost:5000/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+    const data = await res.json();
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => null);
-        alert(errorData?.message || "Login failed. Please check your credentials.");
-        return;
-      }
-
-      const data = await res.json();
-
-      if (!data?.token || !data?.user) {
-        alert("Login failed: invalid response from server");
-        return;
-      }
-
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-      navigate(data.user.role === "patient" ? "/patient" : "/pharmacy");
-    } catch (err) {
-      alert("Network error. Please try again.");
+    if (!data?.token || !data?.user) {
+      alert("Login failed: invalid response from server");
+      return;
     }
-  };
+
+    // ✅ Store data
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+
+    // ✅ Role-based navigation (UPDATED)
+    if (data.user.role === "admin") {
+      navigate("/admin");
+    } else if (data.user.role === "pharmacy") {
+      navigate("/pharmacy");
+    } else {
+      navigate("/patient");
+    }
+
+  } catch (err) {
+    alert("Network error. Please try again.");
+  }
+};
+
+  
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
