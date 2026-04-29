@@ -28,7 +28,7 @@ function AdminDashboard() {
     if (!token || currentUser?.role !== "admin") return;
 
     fetch("http://localhost:5000/users", {
-      headers: { Authorization: token },
+      headers: { Authorization: `Bearer ${token}` },
     })
       .then(async (res) => {
         if (!res.ok) throw new Error("Unauthorized");
@@ -50,7 +50,7 @@ function AdminDashboard() {
     fetch(
       `http://localhost:5000/users?page=${page}&search=${encodeURIComponent(search)}&role=${encodeURIComponent(role)}`,
       {
-        headers: { Authorization: token },
+        headers: { Authorization: `Bearer ${token}` },
       }
     )
       .then(async (res) => {
@@ -72,7 +72,7 @@ function AdminDashboard() {
     if (!token || currentUser?.role !== "admin") return;
 
     fetch("http://localhost:5000/analytics", {
-      headers: { Authorization: token },
+      headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => res.json())
       .then((data) => setAnalytics(data))

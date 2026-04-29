@@ -44,16 +44,27 @@ const Order = mongoose.model("Order", orderSchema);
 
 // Define middleware functions
 const verifyToken = (req, res, next) => {
-  const token = req.headers.authorization;
+  const authHeader = req.headers.authorization;
 
-  if (!token) return res.status(403).json({ message: "No token" });
+  // ❌ No header
+  if (!authHeader) {
+    return res.status(401).json({ message: "No token provided" });
+  }
+
+  // ❌ Wrong format
+  if (!authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "Invalid token format" });
+  }
+
+  // ✅ Extract actual token
+  const token = authHeader.split(" ")[1];
 
   try {
     const decoded = jwt.verify(token, SECRET);
     req.user = decoded;
     next();
-  } catch {
-    res.status(401).json({ message: "Invalid token" });
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid or expired token" });
   }
 };
 
@@ -92,10 +103,17 @@ app.get("/orders", async (req, res) => {
 app.put("/update-order/:id",
   verifyToken,
   allowRoles("pharmacy"),
+  
   async (req, res) => {
-    await Order.findByIdAndUpdate(req.params.id, {
-      status: req.body.status,
-    });
+
+    const updated = await Order.findByIdAndUpdate(
+      req.params.id,
+      { status: req.body.status },
+      { new: true }
+    );
+console.log("REQ USER:", req.user);
+    io.emit("orderUpdated", updated); // 🔥 real-time
+
     res.json({ message: "Order updated" });
 });
 
@@ -273,7 +291,18 @@ app.get("/users",
     });
 });
 
+const http = require("http");
+const { Server } = require("socket.io");
 
-app.listen(5000, () => {
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: "*" },
+});
+
+io.on("connection", (socket) => {
+  console.log("User connected:", socket.id);
+});
+
+server.listen(5000, () => {
   console.log("Server running on port 5000");
 });
