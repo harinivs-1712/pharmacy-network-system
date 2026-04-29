@@ -20,18 +20,35 @@ function PharmacyDashboard() {
   if (!token) return <Navigate to="/" />;
 
   
+const fetchMedicines = async () => {
+  const token = localStorage.getItem("token");
 
-  const fetchOrders = async () => {
-    const res = await fetch("http://localhost:5000/orders");
-    const data = await res.json();
-    setOrders(data);
-  };
+  const res = await fetch("http://localhost:5000/medicines", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
 
-  const fetchMedicines = async () => {
-    const res = await fetch("http://localhost:5000/medicines");
-    const data = await res.json();
-    setMedicines(data);
-  };
+  console.log("STATUS:", res.status); // 👈 ADD THIS
+
+  const data = await res.json();
+  console.log("DATA:", data); // 👈 ADD THIS
+
+  setMedicines(data);
+};
+
+const fetchOrders = async () => {
+  const token = localStorage.getItem("token");
+
+  const res = await fetch("http://localhost:5000/orders", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const data = await res.json();
+  setOrders(data);
+};
 
   // 🔹 Update Order Status
   const updateStatus = async (id, status) => {
@@ -71,28 +88,45 @@ console.log("USER:", JSON.parse(localStorage.getItem("user")));
 
   // 🔹 Add Medicine
   const addMedicine = async () => {
-    const newMed = {
-      name,
-      price: Number(price),
-      stock: Number(stock),
-      pharmacy: user.name,
-      distance: Math.floor(Math.random() * 5) + 1,
-    };
+  const token = localStorage.getItem("token");
 
-    await fetch("http://localhost:5000/add-medicine", {
+  const newMed = {
+    name,
+    price: Number(price),
+    stock: Number(stock),
+  };
+
+  try {
+    const res = await fetch("http://localhost:5000/add-medicine", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(newMed),
     });
 
+    const data = await res.json();
+    console.log(data);
+
+    if (!res.ok) {
+      alert(data.message || "Failed ❌");
+      return;
+    }
+
+    alert("Added ✅");
     fetchMedicines();
+
     setName("");
     setPrice("");
     setStock("");
-  };
 
+  } catch (err) {
+    console.error(err);
+    alert("Error ❌");
+  }
+};
+console.log("Medicines:", medicines);
   // 🔹 Logout
   const handleLogout = () => {
     localStorage.clear();
@@ -150,15 +184,13 @@ console.log("USER:", JSON.parse(localStorage.getItem("user")));
       <div className="mb-6">
         <h2 className="font-bold mb-2">Your Medicines 💊</h2>
 
-        {medicines.length === 0 ? (
-          <p>No medicines added</p>
-        ) : (
-          medicines.map((m) => (
-            <div key={m._id} className="bg-white p-3 rounded shadow mb-2">
-              {m.name} - ₹{m.price} (Stock: {m.stock})
-            </div>
-          ))
-        )}
+        {medicines
+  .filter((m) => m.pharmacyId === String(user._id))
+  .map((m) => (
+    <div key={m._id} className="bg-white p-3 rounded shadow mb-2">
+      {m.name} - ₹{m.price} (Stock: {m.stock})
+    </div>
+))}
       </div>
 
       {/* ORDERS */}

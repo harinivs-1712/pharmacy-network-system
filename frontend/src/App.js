@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
 
 import Login from "./pages/Login";
 import Register from "./pages/register";
@@ -13,7 +14,10 @@ function App() {
   const [medicines, setMedicines] = useState([]);
 
   return (
-    <Router>
+    <>
+      <Toaster position="top-right" />
+      
+        <Router>
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -30,6 +34,7 @@ function App() {
           }
         />
 
+         
 
         <Route
           path="/patient"
@@ -53,6 +58,9 @@ function App() {
         />
       </Routes>
     </Router>
+      
+    </>
+    
   );
 }
 

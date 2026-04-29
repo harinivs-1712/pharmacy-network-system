@@ -6,7 +6,7 @@ function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
-
+const [loading, setLoading] = useState(false);
   const handleLogin = async () => {
   const trimmedEmail = email.trim().toLowerCase();
   const trimmedPassword = password.trim();

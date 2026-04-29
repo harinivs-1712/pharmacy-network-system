@@ -1,13 +1,18 @@
+
 import { useState, useEffect } from "react";
 import { io } from "socket.io-client";
+import { Navigate } from "react-router-dom";
 
 function Orders() {
   const [orders, setOrders] = useState([]);
 
+   const token = localStorage.getItem("token");
+
+
+  /* ---------------- SOCKET ---------------- */
   useEffect(() => {
     const socket = io("http://localhost:5000");
 
-    // listen for updates
     socket.on("orderUpdated", (updatedOrder) => {
       setOrders((prev) =>
         prev.map((o) =>
@@ -18,18 +23,35 @@ function Orders() {
       alert(`Order ${updatedOrder.name} is now ${updatedOrder.status}`);
     });
 
-    // cleanup
-    return () => {
-      socket.disconnect();
-    };
+    return () => socket.disconnect();
   }, []);
 
+  /* ---------------- FETCH ORDERS ---------------- */
   useEffect(() => {
-    fetch("http://localhost:5000/orders")
-      .then((res) => res.json())
-      .then((data) => setOrders(data));
-  }, []);
+    const fetchOrders = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/orders", {
+          headers: {
+            Authorization: `Bearer ${token}`, // 🔥 FIX
+          },
+        });
 
+        if (!res.ok) throw new Error();
+
+        const data = await res.json();
+        setOrders(data || []);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchOrders();
+  }, [token]);
+
+ 
+  if (!token) return <Navigate to="/" />;
+
+  /* ---------------- UI ---------------- */
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <h1 className="text-2xl font-bold mb-4">Your Orders 📦</h1>
@@ -46,8 +68,10 @@ function Orders() {
               <div>
                 <h2 className="font-semibold">{order.name}</h2>
                 <p>₹{order.price}</p>
+
+                {/* ✅ Show location instead of distance */}
                 <p className="text-sm text-gray-500">
-                  {order.distance} km away
+                  {order.city}, {order.state}
                 </p>
               </div>
 
@@ -75,3 +99,4 @@ function Orders() {
 }
 
 export default Orders;
+
