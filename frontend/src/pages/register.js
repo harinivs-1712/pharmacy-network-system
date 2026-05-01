@@ -1,3 +1,5 @@
+
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -13,13 +15,14 @@ function Register() {
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
-  const [coords, setCoords] = useState("");
+  const [coords, setCoords] = useState(null);
+
   const [locLoading, setLocLoading] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
 
-  // 📍 Location fetch
+  /* ---------------- LOCATION ---------------- */
   const getLocation = () => {
     if (!navigator.geolocation) {
       toast.error("Geolocation not supported");
@@ -31,7 +34,12 @@ function Register() {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
-        setCoords(`${latitude}, ${longitude}`);
+
+        // ✅ FIXED (object)
+        setCoords({
+          lat: latitude,
+          lng: longitude,
+        });
 
         try {
           const res = await fetch(
@@ -43,13 +51,14 @@ function Register() {
 
           const cityName =
             addr.city || addr.town || addr.village || "Unknown";
+
           const stateName = addr.state || "Unknown";
 
-          setCity(cityName);
+          setCity(cityName.toLowerCase());
           setState(stateName);
           setAddress(data.display_name);
 
-          toast.success("Location fetched");
+          toast.success("Location fetched 📍");
         } catch {
           setAddress(`${latitude}, ${longitude}`);
           toast.error("Using coordinates only");
@@ -64,15 +73,20 @@ function Register() {
     );
   };
 
-  // 📝 Register handler
+  /* ---------------- REGISTER ---------------- */
   const handleRegister = async () => {
-    if (!form.name.trim() || !form.email.trim() || !form.password.trim()) {
-      toast.error("Please fill all fields");
+    if (!form.name || !form.email || !form.password) {
+      toast.error("Fill all fields");
       return;
     }
 
     if (form.password.length < 6) {
-      toast.error("Password must be at least 6 characters");
+      toast.error("Password must be 6+ characters");
+      return;
+    }
+
+    if (!coords) {
+      toast.error("Please fetch location 📍");
       return;
     }
 
@@ -93,14 +107,15 @@ function Register() {
         }),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const error = await res.json().catch(() => null);
-        toast.error(error?.message || "Registration failed");
+        toast.error(data.message || "Registration failed");
         setLoading(false);
         return;
       }
 
-      toast.success("Registered successfully!");
+      toast.success("Registered successfully 🎉");
       navigate("/");
     } catch {
       toast.error("Network error");
@@ -109,15 +124,16 @@ function Register() {
     setLoading(false);
   };
 
+  /* ---------------- UI ---------------- */
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
       <div className="bg-white p-8 rounded-2xl shadow-xl w-96">
 
         <h2 className="text-2xl font-bold text-center mb-6">
-          Register
+          Create Account 🚀
         </h2>
 
-        {/* Name */}
+        {/* NAME */}
         <input
           type="text"
           placeholder="Full Name"
@@ -127,7 +143,7 @@ function Register() {
           }
         />
 
-        {/* Email */}
+        {/* EMAIL */}
         <input
           type="email"
           placeholder="Email"
@@ -137,7 +153,7 @@ function Register() {
           }
         />
 
-        {/* Password */}
+        {/* PASSWORD */}
         <input
           type="password"
           placeholder="Password"
@@ -147,7 +163,7 @@ function Register() {
           }
         />
 
-        {/* Role */}
+        {/* ROLE */}
         <select
           className="w-full p-2 mb-4 border rounded-lg"
           onChange={(e) =>
@@ -158,7 +174,7 @@ function Register() {
           <option value="pharmacy">Pharmacy</option>
         </select>
 
-        {/* 📍 Location Button */}
+        {/* LOCATION BUTTON */}
         <button
           type="button"
           onClick={getLocation}
@@ -167,23 +183,23 @@ function Register() {
           {locLoading ? "Fetching..." : "Use Current Location 📍"}
         </button>
 
-        {/* Address */}
+        {/* ADDRESS */}
         <input
           placeholder="Address"
-          className="w-full p-2 mb-3 border rounded-lg"
+          className="w-full p-2 mb-2 border rounded-lg"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
         />
 
-        {/* City */}
+        {/* CITY */}
         <input
           placeholder="City"
-          className="w-full p-2 mb-3 border rounded-lg"
+          className="w-full p-2 mb-2 border rounded-lg"
           value={city}
           onChange={(e) => setCity(e.target.value)}
         />
 
-        {/* State */}
+        {/* STATE */}
         <input
           placeholder="State"
           className="w-full p-2 mb-4 border rounded-lg"
@@ -191,7 +207,7 @@ function Register() {
           onChange={(e) => setState(e.target.value)}
         />
 
-        {/* Register */}
+        {/* REGISTER */}
         <button
           onClick={handleRegister}
           disabled={loading}
@@ -200,10 +216,10 @@ function Register() {
           {loading ? "Registering..." : "Register"}
         </button>
 
-        {/* Back */}
+        {/* BACK */}
         <button
           onClick={() => navigate("/")}
-          className="w-full mt-2 bg-gray-500 text-white p-2 rounded-lg hover:bg-gray-600"
+          className="w-full mt-2 bg-gray-500 text-white p-2 rounded-lg"
         >
           Back to Login
         </button>

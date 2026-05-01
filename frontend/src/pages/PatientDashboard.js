@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -6,7 +7,7 @@ import toast from "react-hot-toast";
 function PatientDashboard({ orders = [], setOrders }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(null);
-  const [sortType, setSortType] = useState("price");
+  const [sortType, setSortType] = useState("distance");
   const [inStockOnly, setInStockOnly] = useState(false);
   const [medicines, setMedicines] = useState([]);
 
@@ -15,54 +16,50 @@ function PatientDashboard({ orders = [], setOrders }) {
   const user = JSON.parse(localStorage.getItem("user"));
   const token = localStorage.getItem("token");
 
-  /* ---------------- FETCH MEDICINES ---------------- */
+  
+
+  /* ---------------- DISTANCE ---------------- */
+  const getDistance = (lat1, lon1, lat2, lon2) => {
+    const dx = lat1 - lat2;
+    const dy = lon1 - lon2;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
   useEffect(() => {
-    if (!token) return;
+  const fetchMeds = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/medicines", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-    if (!user?.city) {
-      console.log("City missing ❌");
-      return;
-    }
-
-    const fetchMeds = async () => {
-      try {
-        const city = user.city.trim().toLowerCase();
-
-        const res = await fetch(
-          `http://localhost:5000/medicines?city=${city}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (!res.ok) {
-          const text = await res.text();
-          console.log("ERROR:", text);
-          throw new Error("Fetch failed");
-        }
-
-        const data = await res.json();
-        setMedicines(data || []);
-      } catch (err) {
-        console.error(err);
-        toast.error("Failed to load medicines ❌");
-        setMedicines([]);
+      if (!res.ok) {
+        throw new Error("Failed to fetch medicines");
       }
-    };
 
-    fetchMeds();
-  }, [user?.city, token]);
+      const data = await res.json();
 
-  if (!token) return <Navigate to="/" />;
+      // ✅ DO NOT modify distance
+      // Backend already gives correct distance
+      setMedicines(data);
 
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load medicines");
+    }
+  };
+
+  if (token) fetchMeds();
+}, [token]);
+
+if (!token) return <Navigate to="/" />;
   /* ---------------- FILTER ---------------- */
   let filtered = medicines.filter((m) =>
     m.name.toLowerCase().includes(query.toLowerCase())
   );
 
-  if (inStockOnly) filtered = filtered.filter((m) => m.stock > 0);
+  if (inStockOnly) {
+    filtered = filtered.filter((m) => m.stock > 0);
+  }
 
   /* ---------------- GROUP ---------------- */
   const grouped = {};
@@ -73,16 +70,15 @@ function PatientDashboard({ orders = [], setOrders }) {
 
   /* ---------------- SORT ---------------- */
   Object.keys(grouped).forEach((key) => {
-    grouped[key].sort((a, b) => a.price - b.price);
+    if (sortType === "price") {
+      grouped[key].sort((a, b) => a.price - b.price);
+    } else {
+      grouped[key].sort((a, b) => a.distance - b.distance);
+    }
   });
 
   /* ---------------- ORDER ---------------- */
   const handleConfirm = async () => {
-    if (!selected) {
-      toast.error("No medicine selected");
-      return;
-    }
-
     try {
       const res = await fetch("http://localhost:5000/add-order", {
         method: "POST",
@@ -99,20 +95,16 @@ function PatientDashboard({ orders = [], setOrders }) {
 
       if (!res.ok) throw new Error();
 
-      if (setOrders) setOrders([...orders, selected]);
-
-      toast.success("Order placed ✅");
+      toast.success("Order placed");
       setSelected(null);
-    } catch (err) {
-      console.error(err);
-      toast.error("Order failed ❌");
+    } catch {
+      toast.error("Order failed");
     }
   };
 
   /* ---------------- LOGOUT ---------------- */
   const handleLogout = () => {
     localStorage.clear();
-    toast.success("Logged out 👋");
     window.location.href = "/";
   };
 
@@ -120,7 +112,7 @@ function PatientDashboard({ orders = [], setOrders }) {
   return (
     <div className="min-h-screen bg-gray-100 p-6">
 
-      {/* TOP BAR */}
+      {/* HEADER */}
       <div className="flex justify-between mb-4">
         <button
           onClick={() => navigate("/orders")}
@@ -143,17 +135,19 @@ function PatientDashboard({ orders = [], setOrders }) {
       <input
         type="text"
         placeholder="Search medicine..."
-        className="w-full p-3 mb-6 rounded-xl border"
+        className="w-full p-3 mb-4 rounded-xl border"
         onChange={(e) => setQuery(e.target.value)}
       />
 
       {/* FILTERS */}
-      <div className="flex gap-4 mb-4">
+      <div className="flex gap-4 mb-6">
+
         <select
-          className="p-2 border rounded"
           value={sortType}
           onChange={(e) => setSortType(e.target.value)}
+          className="p-2 border rounded"
         >
+          <option value="distance">Sort by Distance</option>
           <option value="price">Sort by Price</option>
         </select>
 
@@ -165,12 +159,13 @@ function PatientDashboard({ orders = [], setOrders }) {
           />
           In Stock Only
         </label>
+
       </div>
 
       {/* RESULTS */}
-      <div className="space-y-4">
+      <div className="space-y-6">
         {filtered.length === 0 ? (
-          <p className="text-gray-500">No medicines found</p>
+          <p>No medicines found</p>
         ) : (
           Object.keys(grouped).map((medName) => {
             const medList = grouped[medName];
@@ -180,24 +175,36 @@ function PatientDashboard({ orders = [], setOrders }) {
               <div key={medName}>
                 <h2 className="text-xl font-bold mb-2">{medName}</h2>
 
-                {medList.map((m, i) => (
+                {medList.map((m) => (
                   <div
-                    key={i}
-                    className="bg-white p-4 rounded-xl shadow mb-2 flex justify-between"
+                    key={m._id}
+                    className="bg-white p-4 rounded-xl shadow flex justify-between items-center mb-3 hover:shadow-lg transition"
                   >
+
+                    {/* LEFT */}
                     <div>
                       <p className="font-semibold">{m.pharmacyName}</p>
 
-                      {/* ✅ SHOW FULL LOCATION */}
                       <p className="text-sm text-gray-500">
                         {m.location?.city}, {m.location?.state}
                       </p>
 
-                      <p className="text-sm">Stock: {m.stock}</p>
+                      <p className="text-xs text-gray-400">
+                        {m.location?.address}
+                      </p>
+
+                      <p className="text-sm text-blue-500">
+                        📍 {m.distance.toFixed(2)} km away
+                      </p>
+
+                      <p className="text-sm">
+                        {m.stock > 0 ? "In Stock" : "Out of Stock"}
+                      </p>
                     </div>
 
+                    {/* RIGHT */}
                     <div className="text-right">
-                      <p className="font-bold">₹{m.price}</p>
+                      <p className="text-lg font-bold">₹{m.price}</p>
 
                       {m.price === bestPrice && (
                         <span className="text-xs text-green-600">
@@ -212,6 +219,7 @@ function PatientDashboard({ orders = [], setOrders }) {
                         Order
                       </button>
                     </div>
+
                   </div>
                 ))}
               </div>
@@ -235,9 +243,9 @@ function PatientDashboard({ orders = [], setOrders }) {
           </button>
         </div>
       )}
+
     </div>
   );
 }
 
 export default PatientDashboard;
-

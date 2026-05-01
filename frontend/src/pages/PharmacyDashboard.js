@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
+import toast from "react-hot-toast";
 
 function PharmacyDashboard() {
   const [orders, setOrders] = useState([]);
@@ -9,129 +10,131 @@ function PharmacyDashboard() {
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
 
+  const user = JSON.parse(localStorage.getItem("user"));
+  const token = localStorage.getItem("token");
+
+
+
   useEffect(() => {
     fetchOrders();
     fetchMedicines();
   }, []);
 
-  const user = JSON.parse(localStorage.getItem("user"));
-  const token = localStorage.getItem("token");
+  /* ---------------- FETCH ---------------- */
 
-  if (!token) return <Navigate to="/" />;
+  const fetchMedicines = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/medicines", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-  
-const fetchMedicines = async () => {
-  const token = localStorage.getItem("token");
+      const data = await res.json();
+      setMedicines(data);
 
-  const res = await fetch("http://localhost:5000/medicines", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  console.log("STATUS:", res.status); // 👈 ADD THIS
-
-  const data = await res.json();
-  console.log("DATA:", data); // 👈 ADD THIS
-
-  setMedicines(data);
-};
-
-const fetchOrders = async () => {
-  const token = localStorage.getItem("token");
-
-  const res = await fetch("http://localhost:5000/orders", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  const data = await res.json();
-  setOrders(data);
-};
-
-  // 🔹 Update Order Status
-  const updateStatus = async (id, status) => {
-  const token = localStorage.getItem("token");
-console.log("TOKEN:", token);
-console.log("USER:", JSON.parse(localStorage.getItem("user")));
-  try {
-    const res = await fetch(`http://localhost:5000/update-order/${id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ status }),
-    });
-
-    console.log("STATUS CODE:", res.status);
-
-    const data = await res.json();
-    console.log("RESPONSE:", data);
-
-    if (!res.ok) {
-      alert("Update failed ❌");
-      return;
+    } catch (err) {
+      console.error(err);
     }
-
-    // update UI
-    setOrders((prev) =>
-      prev.map((o) =>
-        o._id === id ? { ...o, status } : o
-      )
-    );
-  } catch (err) {
-    console.error(err);
-  }
-};
-
-  // 🔹 Add Medicine
-  const addMedicine = async () => {
-  const token = localStorage.getItem("token");
-
-  const newMed = {
-    name,
-    price: Number(price),
-    stock: Number(stock),
   };
 
-  try {
-    const res = await fetch("http://localhost:5000/add-medicine", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(newMed),
-    });
 
-    const data = await res.json();
-    console.log(data);
 
-    if (!res.ok) {
-      alert(data.message || "Failed ❌");
+  const fetchOrders = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/orders", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await res.json();
+      setOrders(data);
+
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  /* ---------------- ORDER UPDATE ---------------- */
+
+  const updateStatus = async (id, status) => {
+    try {
+      const res = await fetch(
+        `http://localhost:5000/update-order/${id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status }),
+        }
+      );
+
+      if (!res.ok) {
+        toast.error("Update failed");
+        return;
+      }
+
+      setOrders((prev) =>
+        prev.map((o) =>
+          o._id === id ? { ...o, status } : o
+        )
+      );
+
+      toast.success(`Order ${status}`);
+
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  /* ---------------- ADD MEDICINE ---------------- */
+
+  const addMedicine = async () => {
+    if (!name || !price || !stock) {
+      toast.error("Fill all fields");
       return;
     }
 
-    alert("Added ✅");
-    fetchMedicines();
+    try {
+      const res = await fetch("http://localhost:5000/add-medicine", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name,
+          price: Number(price),
+          stock: Number(stock),
+        }),
+      });
 
-    setName("");
-    setPrice("");
-    setStock("");
+      const data = await res.json();
 
-  } catch (err) {
-    console.error(err);
-    alert("Error ❌");
-  }
-};
-console.log("Medicines:", medicines);
-  // 🔹 Logout
+      if (!res.ok) {
+        toast.error(data.message || "Failed");
+        return;
+      }
+
+      toast.success("Medicine added");
+
+      fetchMedicines();
+      setName("");
+      setPrice("");
+      setStock("");
+
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  /* ---------------- LOGOUT ---------------- */
+
   const handleLogout = () => {
     localStorage.clear();
     window.location.href = "/";
   };
+
+    if (!token) return <Navigate to="/" />;
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
@@ -182,15 +185,51 @@ console.log("Medicines:", medicines);
 
       {/* MEDICINES LIST */}
       <div className="mb-6">
-        <h2 className="font-bold mb-2">Your Medicines 💊</h2>
+        <h2 className="font-bold mb-3">Your Medicines 💊</h2>
 
-        {medicines
-  .filter((m) => m.pharmacyId === String(user._id))
-  .map((m) => (
-    <div key={m._id} className="bg-white p-3 rounded shadow mb-2">
-      {m.name} - ₹{m.price} (Stock: {m.stock})
-    </div>
-))}
+        {medicines.length === 0 ? (
+          <p>No medicines added</p>
+        ) : (
+          medicines.map((m) => (
+            <div
+              key={m._id}
+              className="bg-white p-4 rounded-xl shadow mb-3 flex justify-between"
+            >
+              <div>
+                <h2 className="font-semibold">{m.name}</h2>
+
+                <p className="text-sm text-gray-500">
+                  {m.location?.city}, {m.location?.state}
+                </p>
+
+                <p className="text-sm text-gray-400">
+                  {m.location?.address}
+                </p>
+
+                {/* Optional: show coords */}
+                {m.location?.coordinates && (
+                  <p className="text-xs text-gray-400">
+                    📍 {m.location.coordinates.lat}, {m.location.coordinates.lng}
+                  </p>
+                )}
+              </div>
+
+              <div className="text-right">
+                <p className="font-bold text-lg">₹{m.price}</p>
+
+                {m.stock > 0 ? (
+                  <span className="text-green-500 text-sm">
+                    In Stock ({m.stock})
+                  </span>
+                ) : (
+                  <span className="text-red-500 text-sm">
+                    Out of Stock
+                  </span>
+                )}
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* ORDERS */}
@@ -208,12 +247,16 @@ console.log("Medicines:", medicines);
               <div>
                 <h2 className="font-semibold">{order.name}</h2>
                 <p>₹{order.price}</p>
+
+                <p className="text-sm text-gray-500">
+                  {order.city}, {order.state}
+                </p>
+
                 <p className="text-sm text-gray-500">
                   Status: {order.status}
                 </p>
               </div>
 
-              {/* ACTIONS */}
               {order.status === "Pending" ? (
                 <div className="flex gap-2">
                   <button
@@ -238,7 +281,9 @@ console.log("Medicines:", medicines);
                       : "bg-red-100 text-red-600"
                   }`}
                 >
-                  {order.status === "Accepted" ? "✅ Accepted" : "❌ Rejected"}
+                  {order.status === "Accepted"
+                    ? "✅ Accepted"
+                    : "❌ Rejected"}
                 </span>
               )}
             </div>
