@@ -454,35 +454,54 @@ const cartSchema = new mongoose.Schema({
 const Cart = mongoose.model("Cart", cartSchema);
 
 app.post("/cart/add", verifyToken, async (req, res) => {
-  const { medicineId, name, price, pharmacyId } = req.body;
+  try {
+    const { medicineId, name, price, pharmacyId, quantity } = req.body;
 
-  let cart = await Cart.findOne({ userId: req.user.id });
+    let cart = await Cart.findOne({ userId: req.user.id });
 
-  if (!cart) {
-    cart = new Cart({
-      userId: req.user.id,
-      pharmacyId,
-      items: [{ medicineId, name, price, quantity: 1 }]
-    });
-  } else {
-    // ❗ ensure same pharmacy
-    if (cart.pharmacyId !== pharmacyId) {
-      return res.status(400).json({
-        message: "Cart must contain items from one pharmacy only"
+    if (!cart) {
+      cart = new Cart({
+        userId: req.user.id,
+        pharmacyId,
+        items: [
+          {
+            medicineId,
+            name,
+            price,
+            quantity: quantity || 1,
+          },
+        ],
       });
-    }
-
-    const item = cart.items.find(i => i.medicineId === medicineId);
-
-    if (item) {
-      item.quantity += 1;
     } else {
-      cart.items.push({ medicineId, name, price, quantity: 1 });
-    }
-  }
+      if (cart.pharmacyId !== pharmacyId) {
+        return res.status(400).json({
+          message: "Cart must be from one pharmacy",
+        });
+      }
 
-  await cart.save();
-  res.json({ message: "Added to cart" });
+      const item = cart.items.find(
+        (i) => i.medicineId === medicineId
+      );
+
+      if (item) {
+        item.quantity += quantity || 1;
+      } else {
+        cart.items.push({
+          medicineId,
+          name,
+          price,
+          quantity: quantity || 1,
+        });
+      }
+    }
+
+    await cart.save();
+    res.json({ message: "Added to cart" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Cart error" });
+  }
 });
 
 app.get("/cart", verifyToken, async (req, res) => {

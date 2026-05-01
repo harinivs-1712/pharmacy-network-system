@@ -7,6 +7,7 @@ import Register from "./pages/register";
 import PatientDashboard from "./pages/PatientDashboard";
 import PharmacyDashboard from "./pages/PharmacyDashboard";
 import Orders from "./pages/Orders";
+import Cart from "./pages/Cart";
 import AdminDashboard from "./pages/Admin";
 
 function App() {
@@ -35,7 +36,7 @@ function App() {
         />
 
          
-
+<Route path="/cart" element={<Cart />} />
         <Route
           path="/patient"
           element={

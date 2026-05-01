@@ -4,54 +4,40 @@ import { useState, useEffect } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
-function PatientDashboard({ orders = [], setOrders }) {
+function PatientDashboard() {
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState(null);
   const [sortType, setSortType] = useState("distance");
   const [inStockOnly, setInStockOnly] = useState(false);
   const [medicines, setMedicines] = useState([]);
+  const [quantities, setQuantities] = useState({});
 
   const navigate = useNavigate();
 
-  const user = JSON.parse(localStorage.getItem("user"));
   const token = localStorage.getItem("token");
 
-  
-
-  /* ---------------- DISTANCE ---------------- */
-  const getDistance = (lat1, lon1, lat2, lon2) => {
-    const dx = lat1 - lat2;
-    const dy = lon1 - lon2;
-    return Math.sqrt(dx * dx + dy * dy);
-  };
-
+  /* ---------------- FETCH ---------------- */
   useEffect(() => {
-  const fetchMeds = async () => {
-    try {
-      const res = await fetch("http://localhost:5000/medicines", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+    const fetchMeds = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/medicines", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-      if (!res.ok) {
-        throw new Error("Failed to fetch medicines");
+        if (!res.ok) throw new Error();
+
+        const data = await res.json();
+        setMedicines(data);
+
+      } catch {
+        toast.error("Failed to load medicines");
       }
+    };
 
-      const data = await res.json();
+    if (token) fetchMeds();
+  }, [token]);
 
-      // ✅ DO NOT modify distance
-      // Backend already gives correct distance
-      setMedicines(data);
+  if (!token) return <Navigate to="/" />;
 
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to load medicines");
-    }
-  };
-
-  if (token) fetchMeds();
-}, [token]);
-
-if (!token) return <Navigate to="/" />;
   /* ---------------- FILTER ---------------- */
   let filtered = medicines.filter((m) =>
     m.name.toLowerCase().includes(query.toLowerCase())
@@ -77,28 +63,37 @@ if (!token) return <Navigate to="/" />;
     }
   });
 
-  /* ---------------- ORDER ---------------- */
-  const handleConfirm = async () => {
+  /* ---------------- ADD TO CART ---------------- */
+  const addToCart = async (m) => {
+    const quantity = quantities[m._id] || 1;
+
     try {
-      const res = await fetch("http://localhost:5000/add-order", {
+      const res = await fetch("http://localhost:5000/cart/add", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          name: selected.name,
-          price: selected.price,
-          pharmacyId: selected.pharmacyId,
+          medicineId: m._id,
+          name: m.name,
+          price: m.price,
+          pharmacyId: m.pharmacyId,
+          quantity,
         }),
       });
 
-      if (!res.ok) throw new Error();
+      const data = await res.json();
 
-      toast.success("Order placed");
-      setSelected(null);
+      if (!res.ok) {
+        toast.error(data.message || "Failed");
+        return;
+      }
+
+      toast.success("Added to cart 🛒");
+
     } catch {
-      toast.error("Order failed");
+      toast.error("Error adding to cart");
     }
   };
 
@@ -114,6 +109,7 @@ if (!token) return <Navigate to="/" />;
 
       {/* HEADER */}
       <div className="flex justify-between mb-4">
+
         <button
           onClick={() => navigate("/orders")}
           className="bg-purple-500 text-white px-4 py-2 rounded-lg"
@@ -121,15 +117,28 @@ if (!token) return <Navigate to="/" />;
           View Orders
         </button>
 
-        <button
-          onClick={handleLogout}
-          className="bg-red-500 text-white px-4 py-2 rounded-lg"
-        >
-          Logout
-        </button>
+        <div className="flex gap-2">
+
+          <button
+            onClick={() => navigate("/cart")}
+            className="bg-blue-500 text-white px-4 py-2 rounded-lg"
+          >
+            🛒 Cart
+          </button>
+
+          <button
+            onClick={handleLogout}
+            className="bg-red-500 text-white px-4 py-2 rounded-lg"
+          >
+            Logout
+          </button>
+
+        </div>
       </div>
 
-      <h1 className="text-2xl font-bold mb-4">Search Medicines 💊</h1>
+      <h1 className="text-2xl font-bold mb-4">
+        Search Medicines 💊
+      </h1>
 
       {/* SEARCH */}
       <input
@@ -194,7 +203,7 @@ if (!token) return <Navigate to="/" />;
                       </p>
 
                       <p className="text-sm text-blue-500">
-                        📍 {m.distance.toFixed(2)} km away
+                        📍 {m.distance?.toFixed(2)} km away
                       </p>
 
                       <p className="text-sm">
@@ -212,12 +221,43 @@ if (!token) return <Navigate to="/" />;
                         </span>
                       )}
 
+                      {/* QUANTITY */}
+                      <div className="flex items-center gap-2 mt-2 justify-end">
+                        <button
+                          onClick={() =>
+                            setQuantities((prev) => ({
+                              ...prev,
+                              [m._id]: Math.max((prev[m._id] || 1) - 1, 1),
+                            }))
+                          }
+                          className="px-2 bg-gray-200 rounded"
+                        >
+                          -
+                        </button>
+
+                        <span>{quantities[m._id] || 1}</span>
+
+                        <button
+                          onClick={() =>
+                            setQuantities((prev) => ({
+                              ...prev,
+                              [m._id]: (prev[m._id] || 1) + 1,
+                            }))
+                          }
+                          className="px-2 bg-gray-200 rounded"
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      {/* ADD TO CART */}
                       <button
-                        onClick={() => setSelected(m)}
+                        onClick={() => addToCart(m)}
                         className="block mt-2 bg-blue-500 text-white px-3 py-1 rounded"
                       >
-                        Order
+                        Add to Cart
                       </button>
+
                     </div>
 
                   </div>
@@ -227,22 +267,6 @@ if (!token) return <Navigate to="/" />;
           })
         )}
       </div>
-
-      {/* POPUP */}
-      {selected && (
-        <div className="fixed bottom-5 left-1/2 transform -translate-x-1/2 bg-white p-4 shadow-lg rounded-xl w-80">
-          <h3 className="font-bold mb-2">Confirm Order</h3>
-          <p>{selected.name}</p>
-          <p>₹{selected.price}</p>
-
-          <button
-            onClick={handleConfirm}
-            className="mt-3 w-full bg-green-500 text-white p-2 rounded-lg"
-          >
-            Confirm
-          </button>
-        </div>
-      )}
 
     </div>
   );
