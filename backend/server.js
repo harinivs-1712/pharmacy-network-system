@@ -31,6 +31,8 @@ io.on("connection", (socket) => {
 
 /* ---------------- SCHEMAS ---------------- */
 
+
+
 // ✅ USER (UPDATED)
 const userSchema = new mongoose.Schema({
   email: String,
@@ -153,8 +155,8 @@ app.post("/register", async (req, res) => {
     if (!email || !password || !name || !role)
       return res.status(400).json({ message: "All fields required" });
 
-    if (role === "admin")
-      return res.status(403).json({ message: "Admin not allowed" });
+    //if (role === "admin")
+      //return res.status(403).json({ message: "Admin not allowed" });
 
     const exists = await User.findOne({ email });
     if (exists)
@@ -561,6 +563,8 @@ app.post("/cart/checkout", verifyToken, async (req, res) => {
   res.json({ message: "Order placed", order });
 });
 
+
+bcrypt.hash("admin123", 10).then(console.log);
 /* ---------------- START SERVER ---------------- */
 server.listen(5000, () => {
   console.log("Server running on port 5000");
