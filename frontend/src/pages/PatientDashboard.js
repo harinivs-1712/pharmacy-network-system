@@ -1,5 +1,3 @@
-
-
 import { useState, useEffect } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -11,8 +9,12 @@ function PatientDashboard() {
   const [medicines, setMedicines] = useState([]);
   const [quantities, setQuantities] = useState({});
 
-  const navigate = useNavigate();
+  // 🔥 NEW STATES
+  const [file, setFile] = useState(null);
+  const [prescriptionMeds, setPrescriptionMeds] = useState([]);
+  const [loadingUpload, setLoadingUpload] = useState(false);
 
+  const navigate = useNavigate();
   const token = localStorage.getItem("token");
 
   /* ---------------- FETCH ---------------- */
@@ -37,6 +39,41 @@ function PatientDashboard() {
   }, [token]);
 
   if (!token) return <Navigate to="/" />;
+
+  /* ---------------- UPLOAD PRESCRIPTION ---------------- */
+  const uploadPrescription = async () => {
+    if (!file) return toast.error("Please select a file");
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      setLoadingUpload(true);
+
+      const res = await fetch("http://localhost:5000/upload-prescription", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.message || "Upload failed");
+        return;
+      }
+
+      setPrescriptionMeds(data.medicines || []);
+      toast.success("Prescription processed ✅");
+
+    } catch {
+      toast.error("Upload failed");
+    } finally {
+      setLoadingUpload(false);
+    }
+  };
 
   /* ---------------- FILTER ---------------- */
   let filtered = medicines.filter((m) =>
@@ -97,6 +134,42 @@ function PatientDashboard() {
     }
   };
 
+  const addPrescriptionToCart = async (med) => {
+  if (!med.best) return toast.error("Not available");
+
+  const m = med.best;
+  const quantity = quantities[m._id] || 1;
+
+  try {
+    const res = await fetch("http://localhost:5000/cart/add", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        medicineId: m._id,
+        name: m.name,
+        price: m.price,
+        pharmacyId: m.pharmacyId,
+        quantity,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      toast.error(data.message || "Failed");
+      return;
+    }
+
+    toast.success("Added to cart 🛒");
+
+  } catch {
+    toast.error("Error adding to cart");
+  }
+};
+
   /* ---------------- LOGOUT ---------------- */
   const handleLogout = () => {
     localStorage.clear();
@@ -147,6 +220,101 @@ function PatientDashboard() {
         className="w-full p-3 mb-4 rounded-xl border"
         onChange={(e) => setQuery(e.target.value)}
       />
+
+      {/* 🔥 UPLOAD PRESCRIPTION */}
+      <div className="bg-white p-4 rounded-xl shadow mb-6">
+        <h2 className="font-semibold mb-2">Upload Prescription 📄</h2>
+
+        <div className="flex gap-2 items-center">
+          <input
+            type="file"
+            onChange={(e) => setFile(e.target.files[0])}
+            className="border p-2 rounded"
+          />
+
+          <button
+            onClick={uploadPrescription}
+            className="bg-green-500 text-white px-4 py-2 rounded"
+          >
+            {loadingUpload ? "Processing..." : "Upload"}
+          </button>
+        </div>
+      </div>
+
+      {/* 🔥 PRESCRIPTION RESULTS */}
+      {prescriptionMeds.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-bold mb-4 text-green-700">
+            Detected from Prescription 🧾
+          </h2>
+
+          {prescriptionMeds.map((med) => {
+  const m = med.best;
+
+  return (
+    <div key={med.name} className="mb-4">
+      <h3 className="font-semibold">{med.name}</h3>
+
+      {m ? (
+        <div className="bg-green-50 p-3 rounded mt-2 flex justify-between items-center">
+
+          {/* LEFT */}
+          <div>
+            <p className="font-medium text-green-700">Best Option</p>
+            <p>{m.pharmacy?.name || m.pharmacyName}</p>
+            <p>₹{m.price}</p>
+          </div>
+
+          {/* RIGHT (🔥 NEW ADDITION ONLY) */}
+          <div className="text-right">
+
+            {/* QUANTITY */}
+            <div className="flex items-center gap-2 justify-end">
+              <button
+                onClick={() =>
+                  setQuantities((prev) => ({
+                    ...prev,
+                    [m._id]: Math.max((prev[m._id] || 1) - 1, 1),
+                  }))
+                }
+                className="px-2 bg-gray-200 rounded"
+              >
+                -
+              </button>
+
+              <span>{quantities[m._id] || 1}</span>
+
+              <button
+                onClick={() =>
+                  setQuantities((prev) => ({
+                    ...prev,
+                    [m._id]: (prev[m._id] || 1) + 1,
+                  }))
+                }
+                className="px-2 bg-gray-200 rounded"
+              >
+                +
+              </button>
+            </div>
+
+            {/* ADD TO CART */}
+            <button
+              onClick={() => addPrescriptionToCart(med)}
+              className="block mt-2 bg-blue-500 text-white px-3 py-1 rounded"
+            >
+              Add to Cart
+            </button>
+
+          </div>
+        </div>
+      ) : (
+        <p className="text-red-500">Not available</p>
+      )}
+    </div>
+  );
+})}
+        </div>
+      )}
 
       {/* FILTERS */}
       <div className="flex gap-4 mb-6">
@@ -221,7 +389,6 @@ function PatientDashboard() {
                         </span>
                       )}
 
-                      {/* QUANTITY */}
                       <div className="flex items-center gap-2 mt-2 justify-end">
                         <button
                           onClick={() =>
@@ -250,7 +417,6 @@ function PatientDashboard() {
                         </button>
                       </div>
 
-                      {/* ADD TO CART */}
                       <button
                         onClick={() => addToCart(m)}
                         className="block mt-2 bg-blue-500 text-white px-3 py-1 rounded"

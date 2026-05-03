@@ -4,9 +4,24 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
-
+const stringSimilarity = require("string-similarity");
 const SECRET = "mysecretkey";
+const multer = require("multer");
+const path = require("path");
 
+const pdf = require("pdf-poppler");
+
+// storage config
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, "uploads/");
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({ storage });
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -91,6 +106,15 @@ const orderSchema = new mongoose.Schema({
 
 const Order = mongoose.model("Order", orderSchema);
 
+const prescriptionSchema = new mongoose.Schema({
+  userId: String,
+  file: String,
+  extractedMedicines: [String],
+  createdAt: { type: Date, default: Date.now }
+});
+
+const Prescription = mongoose.model("Prescription", prescriptionSchema);
+
 /* ---------------- MIDDLEWARE ---------------- */
 
 const verifyToken = (req, res, next) => {
@@ -156,7 +180,7 @@ app.post("/register", async (req, res) => {
       return res.status(400).json({ message: "All fields required" });
 
     //if (role === "admin")
-      //return res.status(403).json({ message: "Admin not allowed" });
+    //return res.status(403).json({ message: "Admin not allowed" });
 
     const exists = await User.findOne({ email });
     if (exists)
@@ -266,7 +290,7 @@ app.get("/medicines", verifyToken, async (req, res) => {
     // 🏪 If pharmacy → only their medicines
     if (req.user.role === "pharmacy") {
       meds = await Medicine.find({ pharmacyId: req.user.id });
-    } 
+    }
     // 👤 If patient → get all + sort by nearest
     else {
       const city = (req.query.city || "").toLowerCase();
@@ -563,8 +587,213 @@ app.post("/cart/checkout", verifyToken, async (req, res) => {
   res.json({ message: "Order placed", order });
 });
 
+const Tesseract = require("tesseract.js");
+const Fuse = require("fuse.js");
 
-bcrypt.hash("admin123", 10).then(console.log);
+const fs = require("fs");
+
+
+/* ---------------- PDF → IMAGE ---------------- */
+const convertPdfToImage = async (filePath) => {
+  const outputDir = path.join(__dirname, "uploads");
+
+  const opts = {
+    format: "png",
+    out_dir: outputDir,
+    out_prefix: "converted",
+    page: 1, // first page only
+  };
+
+  await pdf.convert(filePath, opts);
+
+  return path.join(outputDir, "converted-1.png");
+};
+
+/* ---------------- API ---------------- */
+app.post(
+  "/upload-prescription",
+  verifyToken,
+  upload.single("file"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      let filePath = req.file.path;
+
+      /* ---------- PDF SUPPORT ---------- */
+      if (filePath.toLowerCase().endsWith(".pdf")) {
+        try {
+          filePath = await convertPdfToImage(filePath);
+        } catch (err) {
+          console.error("PDF conversion failed:", err);
+          return res.status(500).json({ message: "PDF conversion failed" });
+        }
+      }
+
+      /* ---------- OCR ---------- */
+      const ocrResult = await Tesseract.recognize(filePath, "eng");
+      const rawText = ocrResult.data.text;
+
+      console.log("\n📄 RAW TEXT:\n", rawText);
+
+      /* ---------- CLEAN ---------- */
+      const cleaned = rawText
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 2);
+
+      console.log("\n🧹 CLEANED:\n", cleaned);
+
+      /* ---------- EXTRACT MEDICINE LINES ONLY ---------- */
+      const medicineLines = cleaned.filter((line) =>
+        /(tab|cap|syrup)/i.test(line)
+      );
+
+      console.log("\n💊 MEDICINE LINES:\n", medicineLines);
+
+      /* ---------- PROCESS LINES ---------- */
+      const processedLines = medicineLines.map((line) => {
+        let cleaned = line
+          .toLowerCase()
+          .replace(/tab|cap|syrup/gi, "")
+          .replace(/\d+/g, "")
+          .replace(/[^a-z\s]/g, "")
+          .trim();
+
+        // 🔥 remove trailing instructions
+        cleaned = cleaned.split("for")[0];
+        cleaned = cleaned.split("until")[0];
+        cleaned = cleaned.split("sos")[0];
+
+        return cleaned.trim();
+      });
+
+      console.log("\n🔍 PROCESSED:\n", processedLines);
+
+      /* ---------- LOAD MEDICINES ---------- */
+      const allMedicines = await Medicine.find({}, "name");
+
+      /* ---------- FUZZY SEARCH ---------- */
+      const fuse = new Fuse(allMedicines, {
+        keys: ["name"],
+        threshold: 0.6, // higher tolerance
+      });
+
+      let extractedMedicines = [];
+
+      processedLines.forEach((line) => {
+        const words = line.split(" ");
+
+        words.forEach((word) => {
+          if (word.length < 4) return;
+
+          let bestMatch = null;
+          let bestScore = 0;
+
+          allMedicines.forEach((med) => {
+            const score = stringSimilarity.compareTwoStrings(
+              word,
+              med.name.toLowerCase()
+            );
+
+            if (score > bestScore) {
+              bestScore = score;
+              bestMatch = med.name;
+            }
+          });
+
+          if (bestScore > 0.5) {
+            extractedMedicines.push(bestMatch);
+          }
+        });
+      });
+
+      /* ---------- FALLBACK MATCH ---------- */
+      if (extractedMedicines.length === 0) {
+        for (let med of allMedicines) {
+          for (let line of processedLines) {
+            if (line.includes(med.name.toLowerCase())) {
+              extractedMedicines.push(med.name);
+            }
+          }
+        }
+      }
+
+      /* ---------- UNIQUE ---------- */
+      extractedMedicines = [...new Set(extractedMedicines)];
+
+      console.log("\n✅ FINAL MEDICINES:\n", extractedMedicines);
+
+      /* ---------- SAVE ---------- */
+      const prescription = new Prescription({
+        userId: req.user.id,
+        file: filePath,
+        extractedMedicines,
+      });
+
+      await prescription.save();
+
+      /* ---------- FIND BEST OPTIONS ---------- */
+      const result = await Promise.all(
+        extractedMedicines.map(async (name) => {
+          const meds = await Medicine.find({
+            name: { $regex: name, $options: "i" },
+          });
+
+          const sorted = meds.sort((a, b) => a.price - b.price);
+
+          return {
+            name,
+            best: sorted[0] || null,
+            options: sorted.slice(1),
+          };
+        })
+      );
+
+      /* ---------- RESPONSE ---------- */
+      res.json({
+        prescriptionId: prescription._id,
+        rawText,
+        medicines: result,
+      });
+
+    } catch (err) {
+      console.error("UPLOAD ERROR:", err);
+      res.status(500).json({ message: "Upload failed" });
+    }
+  }
+);
+
+app.post("/cart/add-from-prescription", verifyToken, async (req, res) => {
+  const { medicines } = req.body;
+
+  let cart = await Cart.findOne({ userId: req.user.id });
+
+  for (let med of medicines) {
+    if (!cart) {
+      cart = new Cart({
+        userId: req.user.id,
+        pharmacyId: med.pharmacyId,
+        items: [],
+      });
+    }
+
+    cart.items.push({
+      medicineId: med._id,
+      name: med.name,
+      price: med.price,
+      quantity: 1,
+    });
+  }
+
+  await cart.save();
+  res.json({ message: "Added best medicines to cart" });
+});
+
+
+
 /* ---------------- START SERVER ---------------- */
 server.listen(5000, () => {
   console.log("Server running on port 5000");
