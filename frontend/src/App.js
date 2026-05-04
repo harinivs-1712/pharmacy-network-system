@@ -9,7 +9,7 @@ import PharmacyDashboard from "./pages/PharmacyDashboard";
 import Orders from "./pages/Orders";
 import Cart from "./pages/Cart";
 import AdminDashboard from "./pages/Admin";
-
+import MedicineDetails from "./pages/MedicineDetails";
 function App() {
   const [orders, setOrders] = useState([]);
   const [medicines, setMedicines] = useState([]);
@@ -47,7 +47,7 @@ function App() {
             />
           }
         />
-
+<Route path="/medicine/:id" element={<MedicineDetails />} />
         <Route
           path="/orders"
           element={<Orders orders={orders} />}

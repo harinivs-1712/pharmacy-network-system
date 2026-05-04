@@ -46,7 +46,13 @@ io.on("connection", (socket) => {
 
 /* ---------------- SCHEMAS ---------------- */
 
+const medicineMasterSchema = new mongoose.Schema({
+  name: { type: String, unique: true },
+  description: String,
+  image: String,
+});
 
+const MedicineMaster = mongoose.model("MedicineMaster", medicineMasterSchema);
 
 // ✅ USER (UPDATED)
 const userSchema = new mongoose.Schema({
@@ -114,7 +120,7 @@ const prescriptionSchema = new mongoose.Schema({
 });
 
 const Prescription = mongoose.model("Prescription", prescriptionSchema);
-
+app.use("/images", express.static("uploads/medicines-images"));
 /* ---------------- MIDDLEWARE ---------------- */
 
 const verifyToken = (req, res, next) => {
@@ -287,28 +293,22 @@ app.get("/medicines", verifyToken, async (req, res) => {
   try {
     let meds;
 
-    // 🏪 If pharmacy → only their medicines
+    /* ---------------- ROLE BASED FETCH ---------------- */
+
     if (req.user.role === "pharmacy") {
       meds = await Medicine.find({ pharmacyId: req.user.id });
-    }
-    // 👤 If patient → get all + sort by nearest
-    else {
+    } else {
       const city = (req.query.city || "").toLowerCase();
+      const query = city ? { "location.city": city } : {};
 
-      let query = city ? { "location.city": city } : {};
       meds = await Medicine.find(query);
 
-      // ✅ Debug (optional)
-      console.log("USER:", req.user.coordinates);
+      /* ---------------- DISTANCE CALC ---------------- */
 
-      // 🔥 Add distance + sort
       if (req.user.coordinates) {
         meds = meds.map((m) => {
           if (!m.location?.coordinates) {
-            return {
-              ...m._doc,
-              distance: null
-            };
+            return { ...m._doc, distance: null };
           }
 
           const distance = calculateDistance(
@@ -320,24 +320,73 @@ app.get("/medicines", verifyToken, async (req, res) => {
 
           return {
             ...m._doc,
-            distance: Number(distance.toFixed(2))
+            distance: Number(distance.toFixed(2)),
           };
         });
 
-        // 🔥 Sort by nearest
+        // sort by nearest
         meds.sort((a, b) => {
           if (a.distance === null) return 1;
           if (b.distance === null) return -1;
           return a.distance - b.distance;
         });
+      } else {
+        // if no coordinates → still convert to plain object
+        meds = meds.map((m) => ({ ...m._doc, distance: null }));
       }
     }
 
-    res.json(meds);
+    /* ---------------- ENRICH WITH MASTER DATA ---------------- */
+
+    const enriched = await Promise.all(
+      meds.map(async (m) => {
+        const master = await MedicineMaster.findOne({ name: m.name });
+
+        return {
+          ...m,
+          description: master?.description || "",
+          image: master?.image || "",
+        };
+      })
+    );
+
+    res.json(enriched);
 
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Error fetching medicines" });
+  }
+});
+
+app.get("/medicine/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // ✅ validate ObjectId
+    if (!require("mongoose").Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid ID" });
+    }
+
+    const med = await Medicine.findById(id);
+
+    // ✅ check if found
+    if (!med) {
+      return res.status(404).json({ message: "Medicine not found" });
+    }
+
+    const master = await MedicineMaster.findOne({
+      name: med.name,
+    });
+
+    res.json({
+      ...med._doc,
+      description: master?.description || "",
+      image: master?.image || "",
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error fetching medicine" });
   }
 });
 
@@ -792,7 +841,32 @@ app.post("/cart/add-from-prescription", verifyToken, async (req, res) => {
   res.json({ message: "Added best medicines to cart" });
 });
 
+// ---------------- ADD MASTER MEDICINE ----------------
 
+app.post("/add-master-medicine", async (req, res) => {
+  try {
+    const { name, description, image } = req.body;
+
+    const exists = await MedicineMaster.findOne({ name });
+    if (exists) {
+      return res.status(400).json({ message: "Already exists" });
+    }
+
+    const med = new MedicineMaster({
+      name,
+      description,
+      image,
+    });
+
+    await med.save();
+
+    res.json({ message: "Master medicine added" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error adding master medicine" });
+  }
+});
 
 /* ---------------- START SERVER ---------------- */
 server.listen(5000, () => {
