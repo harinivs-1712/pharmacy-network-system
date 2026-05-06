@@ -102,11 +102,23 @@ const Medicine = mongoose.model("Medicine", medicineSchema);
 const orderSchema = new mongoose.Schema({
   userId: String,
   pharmacyId: String,
-  name: String,
-  price: Number,
+  pharmacyName: String,
+
+  items: [
+    {
+      medicineId: String,
+      name: String,
+      price: Number,
+      quantity: Number,
+    }
+  ],
+
+  totalAmount: Number,
   status: { type: String, default: "Pending" },
+
   city: String,
   state: String,
+
   createdAt: { type: Date, default: Date.now },
 });
 
@@ -512,7 +524,9 @@ app.get("/users", verifyToken, allowRoles("admin"), async (req, res) => {
 /*----CART STARTS HERE---*/
 const cartSchema = new mongoose.Schema({
   userId: String,
+
   pharmacyId: String,
+  pharmacyName: String,
 
   items: [
     {
@@ -520,62 +534,130 @@ const cartSchema = new mongoose.Schema({
       name: String,
       price: Number,
       quantity: Number,
+
+      pharmacyId: String,
+      pharmacyName: String,
     }
   ],
 
-  updatedAt: { type: Date, default: Date.now }
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
 const Cart = mongoose.model("Cart", cartSchema);
 
 app.post("/cart/add", verifyToken, async (req, res) => {
   try {
-    const { medicineId, name, price, pharmacyId, quantity } = req.body;
 
-    let cart = await Cart.findOne({ userId: req.user.id });
+    const {
+      medicineId,
+      name,
+      price,
+      pharmacyId,
+      quantity,
+    } = req.body;
+
+    /* ---------- GET PHARMACY ---------- */
+
+    const pharmacy = await User.findById(
+      new mongoose.Types.ObjectId(pharmacyId)
+    );
+
+    if (!pharmacy) {
+      console.error("Invalid pharmacyId:", pharmacyId);
+
+      return res.status(404).json({
+        message: "Pharmacy not found",
+      });
+    }
+
+    /* ---------- FIND CART ---------- */
+
+    let cart = await Cart.findOne({
+      userId: req.user.id,
+    });
+
+    /* ---------- CREATE NEW CART ---------- */
 
     if (!cart) {
+
       cart = new Cart({
         userId: req.user.id,
-        pharmacyId,
+
+        pharmacyId: String(pharmacyId),
+        pharmacyName: pharmacy.name,
+
         items: [
           {
-            medicineId,
+            medicineId: medicineId.toString(),
             name,
             price,
             quantity: quantity || 1,
+
+            pharmacyId: String(pharmacyId),
+            pharmacyName: pharmacy.name,
           },
         ],
       });
+
     } else {
-      if (cart.pharmacyId !== pharmacyId) {
+
+      /* ---------- SAME PHARMACY CHECK ---------- */
+
+      if (
+        String(cart.pharmacyId) !==
+        String(pharmacyId)
+      ) {
         return res.status(400).json({
-          message: "Cart must be from one pharmacy",
+          message:
+            "Cart should contain medicines from same pharmacy",
         });
       }
 
+      /* ---------- CHECK EXISTING ITEM ---------- */
+
       const item = cart.items.find(
-        (i) => i.medicineId === medicineId
+        (i) =>
+          String(i.medicineId) ===
+          String(medicineId)
       );
 
       if (item) {
+
         item.quantity += quantity || 1;
+
       } else {
+
         cart.items.push({
-          medicineId,
+         medicineId: medicineId.toString(),
           name,
           price,
           quantity: quantity || 1,
+
+          pharmacyId: String(pharmacyId),
+          pharmacyName: pharmacy.name,
         });
       }
     }
 
+    /* ---------- SAVE ---------- */
+
     await cart.save();
-    res.json({ message: "Added to cart" });
+
+    res.json({
+      message: "Added to cart",
+      cart,
+    });
 
   } catch (err) {
+
     console.error(err);
-    res.status(500).json({ message: "Cart error" });
+
+    res.status(500).json({
+      message: "Cart error",
+    });
   }
 });
 
@@ -587,7 +669,9 @@ app.get("/cart", verifyToken, async (req, res) => {
 app.put("/cart/update/:medicineId", verifyToken, async (req, res) => {
   const { quantity } = req.body;
 
-  const cart = await Cart.findOne({ userId: req.user.id });
+  const cart = await Cart.findOne({ userId: req.user.id });  // ✅ ADD THIS
+
+  if (!cart) return res.status(404).json({ message: "Cart not found" });
 
   const item = cart.items.find(i => i.medicineId === req.params.medicineId);
 
@@ -599,41 +683,98 @@ app.put("/cart/update/:medicineId", verifyToken, async (req, res) => {
   res.json(cart);
 });
 
-app.delete("/cart/remove/:medicineId", verifyToken, async (req, res) => {
-  const cart = await Cart.findOne({ userId: req.user.id });
+app.delete(
+  "/cart/remove/:medicineId",
+  verifyToken,
+  async (req, res) => {
+    try {
 
-  cart.items = cart.items.filter(i => i.medicineId !== req.params.medicineId);
+      const cart = await Cart.findOne({
+        userId: req.user.id,
+      });
 
-  await cart.save();
-  res.json(cart);
-});
+      if (!cart) {
+        return res.status(404).json({
+          message: "Cart not found",
+        });
+      }
+
+      /* ---------- REMOVE ITEM ---------- */
+
+      cart.items = cart.items.filter(
+        (i) =>
+          String(i.medicineId) !==
+          String(req.params.medicineId)
+      );
+
+      /* ---------- DELETE EMPTY CART ---------- */
+
+      if (cart.items.length === 0) {
+
+        await Cart.deleteOne({
+          _id: cart._id,
+        });
+
+        return res.json({
+          message: "Cart emptied",
+        });
+      }
+
+      /* ---------- SAVE ---------- */
+
+      await cart.save();
+
+      res.json(cart);
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        message: "Remove failed",
+      });
+    }
+  }
+);
 
 app.post("/cart/checkout", verifyToken, async (req, res) => {
-  const cart = await Cart.findOne({ userId: req.user.id });
+  try {
+    const cart = await Cart.findOne({ userId: req.user.id }); // ✅ FIX
 
-  if (!cart || cart.items.length === 0) {
-    return res.status(400).json({ message: "Cart empty" });
+    if (!cart) {
+      return res.status(404).json({ message: "Cart not found" });
+    }
+
+    if (cart.items.length === 0) {
+      return res.status(400).json({ message: "Cart empty" });
+    }
+
+    const total = cart.items.reduce(
+      (sum, i) => sum + i.price * i.quantity,
+      0
+    );
+
+    const order = new Order({
+      userId: req.user.id,
+      pharmacyId: cart.pharmacyId,
+      pharmacyName: cart.pharmacyName,
+      items: cart.items,
+      totalAmount: total,
+      status: "Pending",
+      city: req.user.city,
+      state: req.user.state
+    });
+
+    await order.save();
+
+    await Cart.deleteOne({ userId: req.user.id });
+
+    res.json({ message: "Order placed", order });
+
+  } catch (err) {
+    console.error("CHECKOUT ERROR:", err);
+    res.status(500).json({ message: "Checkout failed" });
   }
-
-  const total = cart.items.reduce(
-    (sum, i) => sum + i.price * i.quantity,
-    0
-  );
-
-  const order = new Order({
-    userId: req.user.id,
-    pharmacyId: cart.pharmacyId,
-    items: cart.items,
-    totalAmount: total,
-    status: "Pending"
-  });
-
-  await order.save();
-
-  // clear cart
-  await Cart.deleteOne({ userId: req.user.id });
-
-  res.json({ message: "Order placed", order });
 });
 
 const Tesseract = require("tesseract.js");
@@ -785,13 +926,45 @@ app.post(
       await prescription.save();
 
       /* ---------- FIND BEST OPTIONS ---------- */
+      /* ---------- FIND BEST OPTIONS ---------- */
+
+      const allMeds = await Medicine.find();
+
       const result = await Promise.all(
         extractedMedicines.map(async (name) => {
-          const meds = await Medicine.find({
-            name: { $regex: name, $options: "i" },
-          });
 
-          const sorted = meds.sort((a, b) => a.price - b.price);
+          const matchedMeds = allMeds.filter((m) =>
+            m.name.toLowerCase().includes(name.toLowerCase())
+          );
+
+          const enriched = await Promise.all(
+            matchedMeds.map(async (m) => {
+
+              const master = await MedicineMaster.findOne({
+                name: m.name,
+              });
+
+              return {
+                _id: m._id.toString(),
+                name: m.name,
+                price: m.price,
+
+                // ✅ FIXED HERE
+                pharmacyId: m.pharmacyId,
+                pharmacyName: m.pharmacyName,
+
+                image: master?.image
+                  ? master.image.startsWith("http")
+                    ? master.image
+                    : `/images/${master.image}`
+                  : null,
+
+                description: master?.description || "",
+              };
+            })
+          );
+
+          const sorted = enriched.sort((a, b) => a.price - b.price);
 
           return {
             name,
@@ -800,8 +973,8 @@ app.post(
           };
         })
       );
+      console.log("FINAL RESULT:", result);
 
-      /* ---------- RESPONSE ---------- */
       res.json({
         prescriptionId: prescription._id,
         rawText,
@@ -814,33 +987,6 @@ app.post(
     }
   }
 );
-
-app.post("/cart/add-from-prescription", verifyToken, async (req, res) => {
-  const { medicines } = req.body;
-
-  let cart = await Cart.findOne({ userId: req.user.id });
-
-  for (let med of medicines) {
-    if (!cart) {
-      cart = new Cart({
-        userId: req.user.id,
-        pharmacyId: med.pharmacyId,
-        items: [],
-      });
-    }
-
-    cart.items.push({
-      medicineId: med._id,
-      name: med.name,
-      price: med.price,
-      quantity: 1,
-    });
-  }
-
-  await cart.save();
-  res.json({ message: "Added best medicines to cart" });
-});
-
 // ---------------- ADD MASTER MEDICINE ----------------
 
 app.post("/add-master-medicine", async (req, res) => {

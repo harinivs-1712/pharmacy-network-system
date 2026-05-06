@@ -126,107 +126,131 @@ function Register() {
 
   /* ---------------- UI ---------------- */
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-96">
+  <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 to-gray-200 px-4">
 
-        <h2 className="text-2xl font-bold text-center mb-6">
-          Create Account 🚀
-        </h2>
+    <div className="w-full max-w-6xl flex flex-col md:flex-row rounded-2xl overflow-hidden shadow-2xl bg-white">
 
-        {/* NAME */}
-        <input
-          type="text"
-          placeholder="Full Name"
-          className="w-full p-2 mb-3 border rounded-lg"
-          onChange={(e) =>
-            setForm({ ...form, name: e.target.value })
-          }
-        />
+      {/* LEFT PANEL */}
+      <div className="hidden md:flex md:w-2/5 bg-gradient-to-br from-teal-400 via-teal-500 to-green-500 items-center justify-center text-white relative">
 
-        {/* EMAIL */}
-        <input
-          type="email"
-          placeholder="Email"
-          className="w-full p-2 mb-3 border rounded-lg"
-          onChange={(e) =>
-            setForm({ ...form, email: e.target.value })
-          }
-        />
+        {/* Glow */}
+        <div className="absolute w-72 h-72 bg-white opacity-10 rounded-full blur-3xl"></div>
 
-        {/* PASSWORD */}
-        <input
-          type="password"
-          placeholder="Password"
-          className="w-full p-2 mb-3 border rounded-lg"
-          onChange={(e) =>
-            setForm({ ...form, password: e.target.value })
-          }
-        />
+        <div className="relative text-center px-6">
+          <p className="text-sm tracking-widest mb-4 opacity-80">JOIN US</p>
+          <h2 className="text-5xl font-extrabold">REGISTER</h2>
+          <p className="mt-4 text-sm opacity-80">
+            Create your account to get started
+          </p>
+        </div>
+      </div>
 
-        {/* ROLE */}
-        <select
-          className="w-full p-2 mb-4 border rounded-lg"
-          onChange={(e) =>
-            setForm({ ...form, role: e.target.value })
-          }
-        >
-          <option value="patient">Patient</option>
-          <option value="pharmacy">Pharmacy</option>
-        </select>
+      {/* RIGHT SIDE FORM */}
+      <div className="w-full md:w-3/5 p-8 md:p-12 h-[600px] overflow-y-auto">
 
-        {/* LOCATION BUTTON */}
-        <button
-          type="button"
-          onClick={getLocation}
-          className="w-full bg-blue-500 text-white px-3 py-2 rounded mb-3"
-        >
-          {locLoading ? "Fetching..." : "Use Current Location 📍"}
-        </button>
+        {/* Header */}
+        <div className="flex flex-col items-center mb-8">
+          <div className="h-16 w-16 flex items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-green-500 text-white text-2xl shadow-lg">
+            📝
+          </div>
+          <h1 className="text-3xl font-bold mt-4 text-gray-800">Create Account</h1>
+          <p className="text-gray-500 text-sm">Fill in your details</p>
+        </div>
 
-        {/* ADDRESS */}
-        <input
-          placeholder="Address"
-          className="w-full p-2 mb-2 border rounded-lg"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-        />
+        {/* FORM */}
+        <div className="space-y-5">
 
-        {/* CITY */}
-        <input
-          placeholder="City"
-          className="w-full p-2 mb-2 border rounded-lg"
-          value={city}
-          onChange={(e) => setCity(e.target.value)}
-        />
+          {/* NAME */}
+          <input
+            type="text"
+            placeholder="Full Name"
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400"
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+          />
 
-        {/* STATE */}
-        <input
-          placeholder="State"
-          className="w-full p-2 mb-4 border rounded-lg"
-          value={state}
-          onChange={(e) => setState(e.target.value)}
-        />
+          {/* EMAIL */}
+          <input
+            type="email"
+            placeholder="Email"
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400"
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
 
-        {/* REGISTER */}
-        <button
-          onClick={handleRegister}
-          disabled={loading}
-          className="w-full bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600"
-        >
-          {loading ? "Registering..." : "Register"}
-        </button>
+          {/* PASSWORD */}
+          <input
+            type="password"
+            placeholder="Password (6+ characters)"
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400"
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+          />
 
-        {/* BACK */}
-        <button
-          onClick={() => navigate("/")}
-          className="w-full mt-2 bg-gray-500 text-white p-2 rounded-lg"
-        >
-          Back to Login
-        </button>
+          {/* ROLE */}
+          <select
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400"
+            onChange={(e) => setForm({ ...form, role: e.target.value })}
+          >
+            <option value="patient">Patient</option>
+            <option value="pharmacy">Pharmacy</option>
+          </select>
+
+          {/* LOCATION BUTTON */}
+          <button
+            type="button"
+            onClick={getLocation}
+            className="w-full py-3 rounded-xl bg-gradient-to-r from-teal-500 to-green-500 text-white font-semibold shadow-md hover:shadow-lg transition"
+          >
+            {locLoading ? "Fetching Location..." : "Use Current Location 📍"}
+          </button>
+
+          {/* ADDRESS */}
+          <input
+            placeholder="Address"
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+          />
+
+          {/* CITY */}
+          <input
+            placeholder="City"
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+          />
+
+          {/* STATE */}
+          <input
+            placeholder="State"
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400"
+            value={state}
+            onChange={(e) => setState(e.target.value)}
+          />
+
+          {/* REGISTER BUTTON */}
+          <button
+            onClick={handleRegister}
+            disabled={loading}
+            className="w-full py-3 rounded-xl bg-gradient-to-r from-teal-500 to-green-500 text-white font-semibold text-lg shadow-md hover:shadow-lg hover:scale-[1.02] transition"
+          >
+            {loading ? "Registering..." : "CREATE ACCOUNT"}
+          </button>
+        </div>
+
+        {/* LOGIN LINK */}
+        <p className="mt-6 text-center text-sm text-gray-600">
+          Already have an account?{" "}
+          <button
+            onClick={() => navigate("/")}
+            className="text-teal-600 font-semibold hover:underline"
+          >
+            Login
+          </button>
+        </p>
 
       </div>
     </div>
-  );
+  </div>
+);
 }
 
 export default Register;

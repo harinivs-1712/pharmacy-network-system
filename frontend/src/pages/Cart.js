@@ -93,118 +93,146 @@ function Cart() {
 
   /* ---------------- UI ---------------- */
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
+  <div className="min-h-screen bg-gradient-to-br from-slate-100 to-gray-200 p-6">
 
-      <h1 className="text-2xl font-bold mb-6">Shopping Cart 🛒</h1>
+    <div className="max-w-7xl mx-auto">
+
+      {/* HEADER */}
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-gray-800">Your Cart 🛒</h1>
+
+        <div className="bg-white px-5 py-2 rounded-full shadow text-teal-600 font-semibold">
+          {cart.items.length} items
+        </div>
+      </div>
 
       {loading ? (
-        <p>Loading...</p>
+        <p className="text-gray-500">Loading...</p>
       ) : (
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-8">
 
           {/* LEFT SIDE */}
-          <div className="col-span-2 space-y-4">
+          <div className="space-y-6">
 
             {cart.items.length === 0 ? (
-              <p className="text-gray-500">Cart is empty</p>
+              <div className="bg-white rounded-2xl shadow p-10 text-center text-gray-500">
+                Your cart is empty 🛒
+              </div>
             ) : (
               cart.items.map((item) => (
                 <div
                   key={item.medicineId}
-                  className="bg-white p-4 rounded-xl shadow flex justify-between items-center"
+                  className="bg-white rounded-2xl shadow-md p-5 hover:shadow-lg transition flex flex-col md:flex-row md:justify-between gap-4"
                 >
-                  {/* LEFT */}
-                  <div>
-                    <h2 className="font-semibold">{item.name}</h2>
 
-                    <p className="text-sm text-gray-500">
-                      Pharmacy: {cart.pharmacyId}
+                  {/* LEFT CONTENT */}
+                  <div className="flex-1">
+
+                    <h2 className="text-lg font-semibold text-gray-800">
+                      {item.name}
+                    </h2>
+
+                    <p className="text-sm text-gray-500 mt-1">
+                      Pharmacy: {cart.pharmacyName || "Unknown"}
                     </p>
 
-                    <p className="text-gray-600">₹{item.price}</p>
+                    <p className="text-teal-600 font-semibold mt-2">
+                      ₹{item.price}
+                    </p>
 
                     {/* QUANTITY */}
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="flex items-center gap-3 mt-4">
                       <button
                         onClick={() =>
                           updateQty(item.medicineId, item.quantity - 1)
                         }
-                        className="px-2 bg-gray-200 rounded"
+                        className="w-9 h-9 rounded-xl bg-gray-100 hover:bg-gray-200 transition"
                       >
-                        -
+                        −
                       </button>
 
-                      <span>{item.quantity}</span>
+                      <span className="font-semibold text-gray-800">
+                        {item.quantity}
+                      </span>
 
                       <button
                         onClick={() =>
                           updateQty(item.medicineId, item.quantity + 1)
                         }
-                        className="px-2 bg-gray-200 rounded"
+                        className="w-9 h-9 rounded-xl bg-gray-100 hover:bg-gray-200 transition"
                       >
                         +
                       </button>
                     </div>
                   </div>
 
-                  {/* RIGHT */}
-                  <div className="text-right">
-                    <p className="font-bold text-lg">
+                  {/* RIGHT CONTENT */}
+                  <div className="text-right flex flex-col justify-between">
+
+                    <p className="text-xl font-bold text-gray-800">
                       ₹{item.price * item.quantity}
                     </p>
 
                     <button
                       onClick={() => removeItem(item.medicineId)}
-                      className="text-red-500 text-sm mt-2"
+                      className="text-red-500 text-sm hover:underline mt-3"
                     >
                       Remove
                     </button>
                   </div>
+
                 </div>
               ))
             )}
           </div>
 
           {/* RIGHT SIDE */}
-          <div className="bg-white p-5 rounded-xl shadow h-fit">
+          <div className="bg-white rounded-2xl shadow-md p-6 h-fit sticky top-6">
 
-            <h2 className="font-bold mb-4">Price Details</h2>
+            <h2 className="text-xl font-bold mb-5 text-gray-800">
+              Order Summary
+            </h2>
 
-            <div className="flex justify-between mb-2">
-              <span>Total Items</span>
-              <span>{cart.items.length}</span>
-            </div>
+            <div className="space-y-3 text-gray-600">
 
-            <div className="flex justify-between mb-2">
-              <span>Subtotal</span>
-              <span>₹{total}</span>
-            </div>
+              <div className="flex justify-between">
+                <span>Total Items</span>
+                <span>{cart.items.length}</span>
+              </div>
 
-            <div className="flex justify-between mb-2">
-              <span>Delivery</span>
-              <span className="text-green-600">FREE</span>
-            </div>
+              <div className="flex justify-between">
+                <span>Subtotal</span>
+                <span>₹{total}</span>
+              </div>
 
-            <hr className="my-3" />
+              <div className="flex justify-between">
+                <span>Delivery</span>
+                <span className="text-green-600 font-medium">FREE</span>
+              </div>
 
-            <div className="flex justify-between font-bold text-lg">
-              <span>Total Amount</span>
-              <span>₹{total}</span>
+              <hr className="my-3" />
+
+              <div className="flex justify-between text-lg font-bold text-gray-800">
+                <span>Total</span>
+                <span>₹{total}</span>
+              </div>
             </div>
 
             <button
               onClick={checkout}
               disabled={cart.items.length === 0}
-              className="w-full mt-4 bg-green-500 text-white p-2 rounded-lg hover:bg-green-600 disabled:opacity-50"
+              className="w-full mt-6 py-3 rounded-xl bg-gradient-to-r from-teal-500 to-green-500 text-white font-semibold text-lg shadow-md hover:scale-[1.02] hover:shadow-lg transition disabled:opacity-50"
             >
               Place Order
             </button>
 
           </div>
+
         </div>
       )}
     </div>
-  );
+  </div>
+);
 }
 
 export default Cart;

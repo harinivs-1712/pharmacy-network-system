@@ -102,81 +102,113 @@ function MedicineDetails() {
 
   /* ---------------- UI ---------------- */
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-6 flex justify-center items-center">
+  <div className="min-h-screen bg-gradient-to-br from-slate-100 to-gray-200 p-6 flex items-center justify-center">
 
-      <div className="bg-white p-6 rounded-2xl shadow-xl max-w-xl w-full">
+    <div className="w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden grid md:grid-cols-2">
 
-        {/* BACK */}
-        <button
-          onClick={() => navigate(-1)}
-          className="mb-4 text-blue-600 hover:underline"
-        >
-          ← Back
-        </button>
+      {/* LEFT SIDE - IMAGE */}
+      <div className="h-[400px] w-full flex items-center justify-center">
 
-        {/* IMAGE */}
-        <div className="w-full h-60 flex items-center justify-center bg-gray-100 rounded-lg mb-4 overflow-hidden">
-          <img
-            src={med?.image || "https://via.placeholder.com/200"}
-            alt={med?.name}
-            className="max-h-full max-w-full object-contain"
-          />
-        </div>
+  <img
+    src={med?.image || "https://via.placeholder.com/400"}
+    alt={med?.name}
+    onError={(e) => {
+      e.currentTarget.src =
+        "https://via.placeholder.com/400?text=No+Image";
+    }}
+    className="h-[320px] w-auto object-contain block mx-auto"
+  />
 
-        {/* NAME */}
-        <h1 className="text-2xl font-bold mb-1">{med?.name}</h1>
+</div>
 
-        {/* PHARMACY */}
-        <p className="text-gray-500 mb-2">
-          {med?.pharmacyName}
-        </p>
 
-        {/* PRICE */}
-        <p className="text-blue-600 text-xl font-semibold mb-3">
-          ₹{med?.price}
-        </p>
+      {/* RIGHT SIDE - DETAILS */}
+      <div className="p-8 flex flex-col justify-between">
 
-        {/* DESCRIPTION */}
-        <p className="text-gray-700 mb-4 leading-relaxed">
-          {med?.description || "No description available"}
-        </p>
+        {/* TOP */}
+        <div>
 
-        {/* STOCK */}
-        <p className={`text-sm mb-3 ${med?.stock > 0 ? "text-green-600" : "text-red-500"}`}>
-          {med?.stock > 0 ? "In Stock" : "Out of Stock"}
-        </p>
-
-        {/* QUANTITY */}
-        <div className="flex items-center gap-3 mb-4">
+          {/* BACK */}
           <button
-            onClick={() => setQuantity((q) => Math.max(q - 1, 1))}
-            className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+            onClick={() => navigate(-1)}
+            className="text-sm text-teal-600 hover:underline mb-4"
           >
-            -
+            ← Back
           </button>
 
-          <span className="font-semibold">{quantity}</span>
+          {/* NAME */}
+          <h1 className="text-3xl font-bold text-gray-800">
+            {med?.name}
+          </h1>
 
-          <button
-            onClick={() => setQuantity((q) => q + 1)}
-            className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+          {/* PHARMACY */}
+          <p className="text-gray-500 mt-1">
+            Sold by:{" "}
+            <span className="font-medium text-gray-700">
+              {med?.pharmacyName || "Unknown Pharmacy"}
+            </span>
+          </p>
+
+          {/* PRICE */}
+          <p className="text-2xl font-bold text-teal-600 mt-3">
+            ₹{med?.price}
+          </p>
+
+          {/* STOCK */}
+          <p
+            className={`mt-2 text-sm font-medium ${
+              med?.stock > 0 ? "text-green-600" : "text-red-500"
+            }`}
           >
-            +
-          </button>
+            {med?.stock > 0 ? "In Stock" : "Out of Stock"}
+          </p>
+
+          {/* DESCRIPTION */}
+          <p className="text-gray-600 mt-4 leading-relaxed">
+            {med?.description || "No description available"}
+          </p>
         </div>
 
-        {/* ADD TO CART */}
-        <button
-          onClick={addToCart}
-          className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition"
-        >
-          Add to Cart
-        </button>
+        {/* BOTTOM ACTIONS */}
+        <div className="mt-6">
 
+          {/* QUANTITY */}
+          <div className="flex items-center gap-4 mb-5">
+            <span className="text-gray-600 font-medium">Quantity:</span>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setQuantity((q) => Math.max(q - 1, 1))}
+                className="w-9 h-9 rounded-xl bg-gray-100 hover:bg-gray-200 transition"
+              >
+                −
+              </button>
+
+              <span className="font-semibold text-lg">{quantity}</span>
+
+              <button
+                onClick={() => setQuantity((q) => q + 1)}
+                className="w-9 h-9 rounded-xl bg-gray-100 hover:bg-gray-200 transition"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          {/* ADD TO CART */}
+          <button
+            onClick={addToCart}
+            disabled={med?.stock === 0}
+            className="w-full py-3 rounded-xl bg-gradient-to-r from-teal-500 to-green-500 text-white font-semibold text-lg shadow-md hover:scale-[1.02] hover:shadow-lg transition disabled:opacity-50"
+          >
+            Add to Cart 🛒
+          </button>
+
+        </div>
       </div>
-
     </div>
-  );
+  </div>
+);
 }
 
 export default MedicineDetails;

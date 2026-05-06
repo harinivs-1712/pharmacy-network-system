@@ -59,30 +59,76 @@ function AdminDashboard() {
   ];
 
   return (
-    <div className="flex min-h-screen bg-[#F5F7FA]">
+  <div className="flex min-h-screen bg-gradient-to-br from-slate-100 to-gray-200">
 
-      {/* SIDEBAR */}
-      <div className="w-64 bg-[#2A3F54] text-white p-6">
-        <h1 className="text-xl font-bold mb-8">Admin Panel</h1>
-        <div className="space-y-3 text-sm">
-          <div className="p-2 rounded bg-[#1ABB9C]">Dashboard</div>
-          <div className="p-2 hover:bg-[#3E5367] rounded cursor-pointer">Users</div>
-          <div className="p-2 hover:bg-[#3E5367] rounded cursor-pointer">Medicines</div>
-          <div className="p-2 hover:bg-[#3E5367] rounded cursor-pointer">Orders</div>
+    {/* SIDEBAR */}
+    <div className="w-72 bg-gradient-to-b from-[#0F766E] to-[#115E59] text-white fixed h-screen p-6 flex flex-col justify-between shadow-2xl">
+
+      <div>
+
+        <div className="mb-10">
+          <h1 className="text-3xl font-black tracking-tight">
+            💊 Pharmly
+          </h1>
+
+          <p className="text-gray-400 text-sm mt-1">
+            Admin Dashboard
+          </p>
+        </div>
+
+        <div className="space-y-3">
+
+          <div className="bg-gradient-to-r from-teal-500 to-green-500 px-4 py-3 rounded-2xl font-semibold shadow-lg">
+            📊 Dashboard
+          </div>
+
+          <div className="hover:bg-gray-800 transition px-4 py-3 rounded-2xl cursor-pointer">
+            👥 Users
+          </div>
+
+          <div className="hover:bg-gray-800 transition px-4 py-3 rounded-2xl cursor-pointer">
+            💊 Medicines
+          </div>
+
+          <div className="hover:bg-gray-800 transition px-4 py-3 rounded-2xl cursor-pointer">
+            📦 Orders
+          </div>
+
         </div>
       </div>
 
-      {/* MAIN */}
-      <div className="flex-1 p-6">
+      <button
+        className="w-full bg-red-500 hover:bg-red-600 py-3 rounded-2xl font-semibold transition"
+      >
+        Logout
+      </button>
 
-        {/* HEADER */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-semibold text-gray-700">Dashboard</h2>
+    </div>
 
-          <div className="flex gap-2">
+    {/* MAIN */}
+    <div className="ml-72 flex-1 p-8">
+
+      {/* TOP HEADER */}
+      <div className="bg-white rounded-3xl p-8 shadow-xl mb-8 border border-gray-100">
+
+        <div className="flex flex-col lg:flex-row justify-between gap-6">
+
+          <div>
+            <h1 className="text-4xl font-black text-gray-800">
+              Welcome Admin 👋
+            </h1>
+
+            <p className="mt-2 text-gray-500">
+              Manage users, medicines and pharmacy analytics
+            </p>
+          </div>
+
+          <div className="flex gap-3 h-fit">
+
             <input
               placeholder="Search users..."
-              className="px-4 py-2 rounded-lg border bg-white shadow-sm focus:ring-2 focus:ring-blue-400 outline-none"
+              className="px-5 py-3 rounded-2xl bg-gray-100 border border-gray-200 text-gray-700 placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-teal-400"
+              
               value={search}
               onChange={(e) => {
                 setPage(1);
@@ -91,148 +137,316 @@ function AdminDashboard() {
             />
 
             <button
-              onClick={() => setRefresh(prev => !prev)}
-              className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow"
+              onClick={() =>
+                setRefresh((prev) => !prev)
+              }
+              className="bg-gradient-to-r from-teal-500 to-green-500 text-white px-5 py-3 rounded-2xl font-semibold hover:scale-105 transition shadow-lg"
             >
               Refresh
             </button>
-          </div>
-        </div>
 
-        {/* CARDS */}
-        <div className="grid grid-cols-4 gap-6 mb-8">
-          <Card title="Total Users" value={analytics?.totalUsers || 0} color="text-blue-500" />
-          <Card title="Medicines" value={analytics?.totalMedicines || 0} color="text-green-500" />
-          <Card title="Orders" value={analytics?.totalOrders || 0} color="text-purple-500" />
-          <Card title="Pending" value={analytics?.statusData?.pending || 0} color="text-orange-500" />
-        </div>
-
-        {/* CHARTS BACK ✅ */}
-        <div className="grid grid-cols-3 gap-6 mb-8">
-
-          {/* AREA CHART */}
-          <div className="col-span-2 bg-white p-6 rounded-2xl shadow">
-            <h3 className="mb-4 font-semibold text-gray-700">Network Activity</h3>
-
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={trendData}>
-                <defs>
-                  <linearGradient id="greenWave" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#26B99A" stopOpacity={0.4}/>
-                    <stop offset="95%" stopColor="#26B99A" stopOpacity={0}/>
-                  </linearGradient>
-
-                  <linearGradient id="blueWave" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3498DB" stopOpacity={0.4}/>
-                    <stop offset="95%" stopColor="#3498DB" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-
-                <CartesianGrid stroke="#E5E7EB" strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-
-                <Area type="monotone" dataKey="pharmacy" stroke="#26B99A" fill="url(#greenWave)" />
-                <Area type="monotone" dataKey="patient" stroke="#3498DB" fill="url(#blueWave)" />
-              </AreaChart>
-            </ResponsiveContainer>
           </div>
 
-          {/* PIE CHART */}
-          <div className="bg-white p-6 rounded-2xl shadow">
-            <h3 className="mb-4 font-semibold">Order Status</h3>
+        </div>
 
-            <PieChart width={260} height={260}>
-              <Pie data={chartData} dataKey="value" outerRadius={90} innerRadius={50}>
-                <Cell fill="#26B99A" />
-                <Cell fill="#3498DB" />
-                <Cell fill="#BDC3C7" />
-              </Pie>
+      </div>
+
+      {/* STATS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+
+        <Card
+          title="Total Users"
+          value={analytics?.totalUsers || 0}
+          color="text-blue-500"
+        />
+
+        <Card
+          title="Medicines"
+          value={analytics?.totalMedicines || 0}
+          color="text-green-500"
+        />
+
+        <Card
+          title="Orders"
+          value={analytics?.totalOrders || 0}
+          color="text-purple-500"
+        />
+
+        <Card
+          title="Pending"
+          value={analytics?.statusData?.pending || 0}
+          color="text-orange-500"
+        />
+
+      </div>
+
+      {/* CHARTS */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
+
+        {/* AREA CHART */}
+        <div className="xl:col-span-2 bg-white/70 backdrop-blur rounded-3xl p-6 shadow-xl border border-white/50">
+
+          <div className="flex justify-between items-center mb-5">
+
+            <h3 className="text-xl font-bold text-gray-700">
+              📈 Network Activity
+            </h3>
+
+            <span className="text-sm text-gray-400">
+              Last 7 days
+            </span>
+
+          </div>
+
+          <ResponsiveContainer width="100%" height={320}>
+            <AreaChart data={trendData}>
+
+              <defs>
+
+                <linearGradient
+                  id="greenWave"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop
+                    offset="5%"
+                    stopColor="#14B8A6"
+                    stopOpacity={0.5}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor="#14B8A6"
+                    stopOpacity={0}
+                  />
+                </linearGradient>
+
+                <linearGradient
+                  id="blueWave"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop
+                    offset="5%"
+                    stopColor="#3B82F6"
+                    stopOpacity={0.5}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor="#3B82F6"
+                    stopOpacity={0}
+                  />
+                </linearGradient>
+
+              </defs>
+
+              <CartesianGrid stroke="#E5E7EB" />
+
+              <XAxis dataKey="day" />
+
+              <YAxis />
+
               <Tooltip />
+
               <Legend />
-            </PieChart>
-          </div>
+
+              <Area
+                type="monotone"
+                dataKey="pharmacy"
+                stroke="#14B8A6"
+                fill="url(#greenWave)"
+              />
+
+              <Area
+                type="monotone"
+                dataKey="patient"
+                stroke="#3B82F6"
+                fill="url(#blueWave)"
+              />
+
+            </AreaChart>
+          </ResponsiveContainer>
+
         </div>
 
-        {/* USERS TABLE */}
-        <div className="bg-white p-6 rounded-2xl shadow">
-          <h3 className="mb-4 font-semibold">Users</h3>
+        {/* PIE */}
+        <div className="bg-white/70 backdrop-blur rounded-3xl p-6 shadow-xl border border-white/50">
 
-          <table className="w-full text-sm">
+          <h3 className="text-xl font-bold text-gray-700 mb-6">
+            📦 Order Status
+          </h3>
+
+          <div className="flex justify-center">
+
+            <PieChart width={280} height={280}>
+
+              <Pie
+                data={chartData}
+                dataKey="value"
+                outerRadius={100}
+                innerRadius={60}
+              >
+                <Cell fill="#14B8A6" />
+                <Cell fill="#3B82F6" />
+                <Cell fill="#CBD5E1" />
+              </Pie>
+
+              <Tooltip />
+
+              <Legend />
+
+            </PieChart>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* TABLE */}
+      <div className="bg-white/80 backdrop-blur rounded-3xl shadow-xl border border-white/50 p-6">
+
+        <div className="flex justify-between items-center mb-6">
+
+          <h3 className="text-2xl font-bold text-gray-700">
+            👥 Users
+          </h3>
+
+          <div className="text-sm text-gray-500">
+            Total: {users.length}
+          </div>
+
+        </div>
+
+        <div className="overflow-x-auto">
+
+          <table className="w-full">
+
             <thead>
-              <tr className="text-left text-gray-500 border-b">
-                <th className="py-2">Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Status</th>
+
+              <tr className="border-b text-gray-500 text-sm">
+
+                <th className="text-left py-4">
+                  Name
+                </th>
+
+                <th className="text-left">
+                  Email
+                </th>
+
+                <th className="text-left">
+                  Role
+                </th>
+
+                <th className="text-left">
+                  Status
+                </th>
+
               </tr>
+
             </thead>
 
             <tbody>
+
               {users.map((u, i) => (
-                <tr key={i} className="border-b hover:bg-gray-50 transition">
-                  <td className="py-3 font-medium">{u.name}</td>
-                  <td>{u.email}</td>
+
+                <tr
+                  key={i}
+                  className="border-b hover:bg-gray-50 transition"
+                >
+
+                  <td className="py-5 font-semibold text-gray-800">
+                    {u.name}
+                  </td>
+
+                  <td className="text-gray-600">
+                    {u.email}
+                  </td>
+
                   <td>
-                    <span className="px-2 py-1 text-xs bg-gray-100 rounded">
+
+                    <span className="bg-gray-100 px-3 py-1 rounded-full text-xs font-medium">
                       {u.role}
                     </span>
+
                   </td>
+
                   <td>
-                    <span className={`px-3 py-1 text-xs rounded ${
-                      u.role === "pharmacy"
-                        ? "bg-blue-100 text-blue-600"
-                        : "bg-green-100 text-green-600"
-                    }`}>
+
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        u.role === "pharmacy"
+                          ? "bg-blue-100 text-blue-600"
+                          : "bg-green-100 text-green-600"
+                      }`}
+                    >
                       Active
                     </span>
+
                   </td>
+
                 </tr>
+
               ))}
+
             </tbody>
+
           </table>
 
-          {/* 🔥 MODERN PAGINATION */}
-          <div className="flex justify-center items-center gap-2 mt-6">
+        </div>
+
+        {/* PAGINATION */}
+        <div className="flex justify-center gap-2 mt-8 flex-wrap">
+
+          <button
+            disabled={page === 1}
+            onClick={() =>
+              setPage((p) => p - 1)
+            }
+            className="px-4 py-2 rounded-xl bg-white shadow border hover:bg-gray-100 disabled:opacity-40"
+          >
+            ← Prev
+          </button>
+
+          {[...Array(totalPages)].map((_, i) => (
 
             <button
-              disabled={page === 1}
-              onClick={() => setPage(p => p - 1)}
-              className="px-4 py-2 rounded-lg border bg-white shadow hover:bg-gray-100 disabled:opacity-40"
+              key={i}
+              onClick={() =>
+                setPage(i + 1)
+              }
+              className={`px-4 py-2 rounded-xl font-medium ${
+                page === i + 1
+                  ? "bg-gradient-to-r from-teal-500 to-green-500 text-white shadow-lg"
+                  : "bg-white border hover:bg-gray-100"
+              }`}
             >
-              ← Prev
+              {i + 1}
             </button>
 
-            {[...Array(totalPages)].map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setPage(i + 1)}
-                className={`px-3 py-2 rounded-lg text-sm font-medium ${
-                  page === i + 1
-                    ? "bg-blue-500 text-white shadow"
-                    : "bg-white border hover:bg-gray-100"
-                }`}
-              >
-                {i + 1}
-              </button>
-            ))}
+          ))}
 
-            <button
-              disabled={page === totalPages}
-              onClick={() => setPage(p => p + 1)}
-              className="px-4 py-2 rounded-lg border bg-white shadow hover:bg-gray-100 disabled:opacity-40"
-            >
-              Next →
-            </button>
-
-          </div>
+          <button
+            disabled={page === totalPages}
+            onClick={() =>
+              setPage((p) => p + 1)
+            }
+            className="px-4 py-2 rounded-xl bg-white shadow border hover:bg-gray-100 disabled:opacity-40"
+          >
+            Next →
+          </button>
 
         </div>
+
       </div>
+
     </div>
-  );
+
+  </div>
+);
 }
 
 function Card({ title, value, color }) {

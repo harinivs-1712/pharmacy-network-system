@@ -1,6 +1,3 @@
-
-
-
 import { useState, useEffect } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -18,17 +15,33 @@ function PatientDashboard() {
 
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
-
-  
+  const user = JSON.parse(localStorage.getItem("user"));
 
   /* ---------------- FETCH ---------------- */
   useEffect(() => {
     fetch("http://localhost:5000/medicines", {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then(res => res.json())
-      .then(setMedicines)
-      .catch(() => toast.error("Failed to load medicines"));
+      .then(async (res) => {
+        const data = await res.json();
+
+        console.log("API RESPONSE:", data);
+
+        // 🔥 HANDLE TOKEN EXPIRED
+        if (res.status === 401) {
+          toast.error("Session expired. Please login again.");
+          localStorage.clear();
+          window.location.href = "/";
+          return;
+        }
+
+        // ✅ Normal case
+        setMedicines(data);
+      })
+      .catch(() => {
+        toast.error("Failed to load medicines");
+        setMedicines([]);
+      });
   }, [token]);
 
   if (!token) return <Navigate to="/" />;
@@ -43,13 +56,20 @@ function PatientDashboard() {
     try {
       setLoadingUpload(true);
 
-      const res = await fetch("http://localhost:5000/upload-prescription", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
+      const res = await fetch(
+        "http://localhost:5000/upload-prescription",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        }
+      );
 
       const data = await res.json();
+
+      console.log("UPLOAD RESPONSE:", data);
 
       if (!res.ok) {
         toast.error(data.message || "Upload failed");
@@ -57,263 +77,396 @@ function PatientDashboard() {
       }
 
       setPrescriptionMeds(data.medicines || []);
+
       toast.success("Prescription processed ✅");
 
-    } catch {
+    } catch (err) {
+      console.error(err);
       toast.error("Upload failed");
     } finally {
       setLoadingUpload(false);
     }
   };
 
-  /* ---------------- FILTER ---------------- */
-  let filtered = medicines.filter((m) =>
-    m.name.toLowerCase().includes(query.toLowerCase())
-  );
+  const addToCart = async (item) => {
+  try {
 
-  if (inStockOnly) {
-    filtered = filtered.filter((m) => m.stock > 0);
-  }
+    console.log("ADDING ITEM:", item);
 
-  /* ---------------- GROUP ---------------- */
-  const grouped = {};
-  filtered.forEach((m) => {
-    if (!grouped[m.name]) grouped[m.name] = [];
-    grouped[m.name].push(m);
-  });
-
-  /* ---------------- SORT ---------------- */
-  Object.keys(grouped).forEach((key) => {
-    if (sortType === "price") {
-      grouped[key].sort((a, b) => a.price - b.price);
-    } else {
-      grouped[key].sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999));
-    }
-  });
-
-  /* ---------------- ADD TO CART ---------------- */
-  const addToCart = async (m) => {
-    const quantity = quantities[m._id] || 1;
-
-    try {
-      const res = await fetch("http://localhost:5000/cart/add", {
+    const res = await fetch(
+      "http://localhost:5000/cart/add",
+      {
         method: "POST",
+
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+
         body: JSON.stringify({
-          medicineId: m._id,
-          name: m.name,
-          price: m.price,
-          pharmacyId: m.pharmacyId,
-          quantity,
+          medicineId:
+            item.medicineId || item._id,
+
+          name: item.name,
+
+          price: item.price,
+
+          pharmacyId: item.pharmacyId,
+
+          quantity: item.quantity || 1,
         }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        toast.error(data.message || "Failed");
-        return;
       }
+    );
 
-      toast.success("Added to cart 🛒");
+    const data = await res.json();
 
-    } catch {
-      toast.error("Error adding to cart");
+    console.log("ADD TO CART RESPONSE:", data);
+
+    if (!res.ok) {
+      toast.error(
+        data.message || "Failed to add to cart"
+      );
+      return;
     }
-  };
 
-  const addPrescriptionToCart = async (med) => {
-    if (!med.best) return toast.error("Not available");
+    toast.success("Added to cart ✅");
 
-    const m = med.best;
-    const quantity = quantities[m._id] || 1;
+  } catch (err) {
 
-    addToCart({ ...m, quantity });
-  };
+    console.error(err);
 
+    toast.error("Cart error");
+  }
+};
+
+/* ---------------- PRESCRIPTION ADD ---------------- */
+
+const addPrescriptionToCart = async (med) => {
+
+  if (!med.best) {
+    return toast.error("Not available");
+  }
+
+  const m = med.best;
+
+  console.log(
+    "ADDING FROM PRESCRIPTION:",
+    m
+  );
+
+  if (!m.pharmacyId) {
+    return toast.error(
+      "Pharmacy not found for this medicine"
+    );
+  }
+
+  addToCart({
+    medicineId: m._id,
+
+    name: m.name,
+
+    price: m.price,
+
+    pharmacyId: m.pharmacyId,
+
+    quantity: 1,
+  });
+};
   /* ---------------- LOGOUT ---------------- */
   const handleLogout = () => {
     localStorage.clear();
     window.location.href = "/";
   };
 
+  const getImage = (img) => {
+    if (!img) return "http://localhost:5000/images/default.png";
+
+    if (img.startsWith("http")) return img;
+
+    return `http://localhost:5000${img}`;
+  };
+
+  const grouped = medicines.reduce((acc, med) => {
+    const key = med.name;
+
+    if (!acc[key]) acc[key] = [];
+
+    acc[key].push(med);
+
+    acc[key].sort((a, b) => a.price - b.price);
+
+    return acc;
+  }, {});
   /* ---------------- UI ---------------- */
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-6">
+  <div className="flex min-h-screen bg-gray-100">
 
-      {/* HEADER */}
-      <div className="flex justify-between mb-6">
-        <h1 className="text-2xl font-bold text-blue-700">Pharmacy 💊</h1>
+    {/* SIDEBAR */}
+    <div className="w-64 bg-teal-800 text-white fixed left-0 top-0 h-screen flex flex-col justify-between p-5">
+      <div>
+        <h1 className="text-2xl font-bold mb-8">💊 Pharmly</h1>
 
-        <div className="flex gap-3">
-          <button
-            onClick={() => navigate("/cart")}
-            className="bg-blue-500 text-white px-4 py-2 rounded-xl shadow"
-          >
-            🛒 Cart
+        <div className="space-y-3">
+          <button className="w-full text-left bg-yellow-400 text-black px-4 py-2 rounded-lg font-semibold">
+            📄 My Medicines
           </button>
 
           <button
-            onClick={handleLogout}
-            className="bg-red-500 text-white px-4 py-2 rounded-xl"
+            onClick={() => navigate("/orders")}
+            className="w-full text-left px-4 py-2 hover:bg-teal-700 rounded-lg"
           >
-            Logout
+            📦 My Orders
+          </button>
+
+          <button
+            onClick={() => navigate("/cart")}
+            className="w-full text-left px-4 py-2 hover:bg-teal-700 rounded-lg"
+          >
+            🛒 Shopping Cart
           </button>
         </div>
       </div>
 
-      {/* SEARCH */}
-      <input
-        type="text"
-        placeholder="Search medicine..."
-        className="w-full p-3 mb-4 rounded-xl border shadow"
-        onChange={(e) => setQuery(e.target.value)}
-      />
+      <button
+        onClick={handleLogout}
+        className="bg-red-500 w-full py-2 rounded-lg mt-auto"
+      >
+        Logout
+      </button>
+    </div>
 
-      {/* PRESCRIPTION */}
-      <div className="bg-white p-4 rounded-xl shadow mb-6">
-        <h2 className="font-semibold mb-2">Upload Prescription 📄</h2>
+    {/* MAIN */}
+    <div className="ml-64 flex-1 p-6">
 
-        <div className="flex gap-3">
-          <input type="file" onChange={(e) => setFile(e.target.files[0])} />
+      {/* HEADER */}
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-800">
+          Welcome, {user?.name || "Patient"} 👋
+        </h1>
+        <p className="text-gray-500">
+          Find & order medicines at best prices
+        </p>
+      </div>
+
+      {/* UPLOAD */}
+      <div className="bg-white p-6 rounded-2xl shadow mb-6 border border-teal-200">
+        <h2 className="font-semibold text-gray-700 mb-4">
+          📄 Upload Prescription
+        </h2>
+
+        <div className="flex items-center gap-4">
+          <label className="flex-1 border-2 border-dashed border-teal-300 rounded-lg p-4 text-center cursor-pointer hover:bg-teal-50">
+            <input
+              type="file"
+              onChange={(e) => setFile(e.target.files[0])}
+              className="hidden"
+            />
+            <p className="text-gray-500">
+              {file ? file.name : "Click to upload prescription"}
+            </p>
+          </label>
 
           <button
             onClick={uploadPrescription}
-            className="bg-green-500 text-white px-4 py-2 rounded"
+            className="bg-gradient-to-r from-teal-500 to-green-500 text-white px-6 py-3 rounded-lg"
           >
-            {loadingUpload ? "Processing..." : "Upload"}
+            {loadingUpload ? "Uploading..." : "Upload"}
           </button>
         </div>
       </div>
 
-      {/* PRESCRIPTION RESULTS */}
+      {/* ================= PRESCRIPTION SLIDER ONLY ================= */}
       {prescriptionMeds.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-lg font-bold text-green-700 mb-3">
+        <div className="mb-8 w-full">
+
+          <h2 className="text-xl font-bold text-green-700 mb-4">
             Prescription Results 🧾
           </h2>
 
-          {prescriptionMeds.map((med) => {
-            const m = med.best;
+          <div className="relative w-full">
 
-            return (
-              <div key={med.name} className="bg-white p-4 rounded-xl shadow mb-3 flex justify-between">
+            {/* LEFT BUTTON */}
+            <button
+              onClick={() =>
+                document.getElementById("scroll")?.scrollBy({
+                  left: -300,
+                  behavior: "smooth",
+                })
+              }
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white shadow p-2 rounded-full z-10"
+            >
+              ◀
+            </button>
 
-                <div>
-                  <p className="font-semibold">{med.name}</p>
-                  <p className="text-green-600">₹{m?.price}</p>
-                </div>
+            {/* RIGHT BUTTON */}
+            <button
+              onClick={() =>
+                document.getElementById("scroll")?.scrollBy({
+                  left: 300,
+                  behavior: "smooth",
+                })
+              }
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white shadow p-2 rounded-full z-10"
+            >
+              ▶
+            </button>
 
-                <button
-                  onClick={() => addPrescriptionToCart(med)}
-                  className="bg-blue-500 text-white px-3 py-1 rounded"
-                >
-                  Add
-                </button>
-              </div>
-            );
-          })}
+            {/* SCROLL AREA */}
+            <div
+  id="scroll"
+  className="flex gap-4 overflow-x-auto px-10 py-2 scrollbar-hide"
+  style={{
+    scrollBehavior: "smooth",
+    minHeight: "260px"
+  }}
+>
+              {prescriptionMeds.map((med) => {
+                const m = med.best;
+                if (!m || !m._id) return null;
+
+                return (
+                  <div
+                    key={m._id}
+                    className="min-w-[240px] bg-white rounded-2xl shadow p-4 flex flex-col justify-between"
+                  >
+
+                    {/* IMAGE */}
+                    <div className="h-32 bg-gray-100 flex items-center justify-center mb-2">
+                      <img
+                        src={getImage(m.image)}
+                        onError={(e) =>
+                          (e.currentTarget.src =
+                            "http://localhost:5000/images/default.png")
+                        }
+                        className="h-20 object-contain"
+                      />
+                    </div>
+
+                    {/* NAME */}
+                    <h3
+                      onClick={() => navigate(`/medicine/${m._id}`)}
+                      className="font-bold text-lg text-blue-600 cursor-pointer hover:underline"
+                    >
+                      {m.name}
+                    </h3>
+
+                    {/* PHARMACY */}
+                    <p className="text-gray-400 text-sm mt-1">
+                      {m.pharmacyName || "No Pharmacy Found"}
+                    </p>
+
+                    {/* PRICE */}
+                    <p className="text-teal-600 font-bold mt-2">
+                      ₹{m.price}
+                    </p>
+
+                    {/* BUTTON */}
+                    <button
+                      disabled={!m.pharmacyId}
+                      onClick={() => addPrescriptionToCart(med)}
+                      className={`mt-4 py-2 rounded-lg text-white ${
+                        m.pharmacyId
+                          ? "bg-teal-500 hover:bg-teal-600"
+                          : "bg-gray-400 cursor-not-allowed"
+                      }`}
+                    >
+                      {m.pharmacyId ? "Add to Cart" : "Unavailable"}
+                    </button>
+
+                  </div>
+                );
+              })}
+            </div>
+
+          </div>
         </div>
       )}
 
-      {/* FILTERS */}
-      <div className="flex gap-4 mb-6">
-        <select
-          value={sortType}
-          onChange={(e) => setSortType(e.target.value)}
-          className="p-2 border rounded"
-        >
-          <option value="distance">Sort by Distance</option>
-          <option value="price">Sort by Price</option>
-        </select>
+      {/* ================= SEARCH ================= */}
+      <input
+        type="text"
+        placeholder="Search medicines..."
+        className="w-full mb-6 p-3 rounded-lg border"
+        onChange={(e) => setQuery(e.target.value)}
+      />
 
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={inStockOnly}
-            onChange={(e) => setInStockOnly(e.target.checked)}
-          />
-          In Stock Only
-        </label>
-      </div>
+      {/* ================= GRID ================= */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {Object.keys(grouped).map((name) => {
+          const list = grouped[name];
+          const best = list[0];
 
-      {/* MEDICINES GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {Object.keys(grouped).map((medName) => {
-          const medList = grouped[medName];
-          const bestPrice = Math.min(...medList.map((m) => m.price));
+          return (
+            <div key={name} className="bg-white rounded-2xl shadow">
 
-          return medList.map((m) => (
-            <div
-              key={m._id}
-              onClick={() => navigate(`/medicine/${m._id}`)}
-              className="bg-white p-4 rounded-2xl shadow hover:shadow-xl transition cursor-pointer"
-            >
-
-              {/* IMAGE */}
-              <img
-    src={m.image || "https://via.placeholder.com/150"}
-    alt={m.name}
-    className="max-h-full max-w-full object-contain"
-  />
-
-              <h2 className="font-semibold">{m.name}</h2>
-
-              <p className="text-sm text-gray-500">{m.pharmacyName}</p>
-
-              <p className="text-blue-600 font-bold">₹{m.price}</p>
-
-              {m.price === bestPrice && (
-                <span className="text-xs text-green-600">Best Price</span>
-              )}
-
-              {/* QUANTITY */}
-              <div className="flex items-center gap-2 mt-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setQuantities((prev) => ({
-                      ...prev,
-                      [m._id]: Math.max((prev[m._id] || 1) - 1, 1),
-                    }));
-                  }}
-                  className="px-2 bg-gray-200 rounded"
-                >-</button>
-
-                <span>{quantities[m._id] || 1}</span>
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setQuantities((prev) => ({
-                      ...prev,
-                      [m._id]: (prev[m._id] || 1) + 1,
-                    }));
-                  }}
-                  className="px-2 bg-gray-200 rounded"
-                >+</button>
+              <div
+                onClick={() => navigate(`/medicine/${best._id}`)}
+                className="h-40 bg-gray-100 flex items-center justify-center"
+              >
+                <img
+                  src={getImage(best.image)}
+                  onError={(e) =>
+                    (e.currentTarget.src =
+                      "http://localhost:5000/images/default.png")
+                  }
+                  className="h-24 object-contain"
+                />
               </div>
 
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  addToCart(m);
-                }}
-                className="w-full mt-3 bg-blue-500 text-white p-2 rounded-lg"
-              >
-                Add to Cart
-              </button>
+              <div className="p-4">
+                <h2 className="font-bold">{best.name}</h2>
+                <p className="text-gray-400 text-sm">
+                  {best.pharmacyName}
+                </p>
+
+                <div className="flex justify-between mt-2">
+                  <p className="text-teal-600 font-bold">₹{best.price}</p>
+                  <span className="text-xs bg-yellow-100 px-2 rounded">
+                    ⭐ Best
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => addToCart(best)}
+                  className="w-full mt-3 bg-teal-500 text-white py-2 rounded"
+                >
+                  Add to Cart
+                </button>
+
+                {list.length > 1 && (
+                  <details className="mt-3">
+                    <summary className="text-blue-600 cursor-pointer">
+                      View Alternatives
+                    </summary>
+
+                    <div className="mt-2 space-y-1">
+                      {list.slice(1).map((alt) => (
+                        <div
+                          key={alt._id}
+                          onClick={() =>
+                            navigate(`/medicine/${alt._id}`)
+                          }
+                          className="flex justify-between bg-gray-100 px-2 py-1 rounded cursor-pointer"
+                        >
+                          <span>{alt.pharmacyName}</span>
+                          <span className="text-green-600">
+                            ₹{alt.price}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </div>
 
             </div>
-          ));
+          );
         })}
       </div>
 
     </div>
-  );
-}
+  </div>
+);
 
-export default PatientDashboard;
+    }
+      export default PatientDashboard;
