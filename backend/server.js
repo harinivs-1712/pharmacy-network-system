@@ -27,7 +27,7 @@ app.use(cors());
 app.use(express.json());
 
 /* ---------------- DB ---------------- */
-mongoose.connect("mongodb://127.0.0.1:27017/pharmacyDB")
+mongoose.connect("mongodb+srv://nehamfeb21_db_user:Neha$123@cluster0.cwuhrba.mongodb.net/pharmacyDB?retryWrites=true&w=majority")
   .then(() => console.log("MongoDB Connected"))
   .catch(err => console.log(err));
 
@@ -561,17 +561,9 @@ app.post("/cart/add", verifyToken, async (req, res) => {
 
     /* ---------- GET PHARMACY ---------- */
 
-    const pharmacy = await User.findById(
-      new mongoose.Types.ObjectId(pharmacyId)
-    );
-
-    if (!pharmacy) {
-      console.error("Invalid pharmacyId:", pharmacyId);
-
-      return res.status(404).json({
-        message: "Pharmacy not found",
-      });
-    }
+    const pharmacy = {
+  _id: pharmacyId
+};
 
     /* ---------- FIND CART ---------- */
 
